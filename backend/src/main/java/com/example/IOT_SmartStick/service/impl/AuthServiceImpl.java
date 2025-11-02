@@ -5,13 +5,16 @@ import com.example.IOT_SmartStick.constant.UserStatus;
 import com.example.IOT_SmartStick.dto.request.LoginRequest;
 import com.example.IOT_SmartStick.dto.request.SignUpRequest;
 import com.example.IOT_SmartStick.dto.response.AuthResponse;
+import com.example.IOT_SmartStick.entity.InvalidatedToken;
 import com.example.IOT_SmartStick.entity.User;
 import com.example.IOT_SmartStick.entity.VerificationToken;
+import com.example.IOT_SmartStick.repository.InvalidatedTokenRepository;
 import com.example.IOT_SmartStick.repository.UserRepository;
 import com.example.IOT_SmartStick.repository.VerificationTokenRepository;
 import com.example.IOT_SmartStick.service.AuthService;
 import com.example.IOT_SmartStick.service.EmailService;
 import com.example.IOT_SmartStick.service.JwtService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -22,8 +25,10 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.UUID;
 
 @Service
@@ -37,6 +42,7 @@ public class AuthServiceImpl implements AuthService {
     private final UserDetailsService userDetailsService;
     private final VerificationTokenRepository tokenRepository;
     private final EmailService emailService;
+    private final InvalidatedTokenRepository invalidatedTokenRepository;
     @Override
     @Transactional
     public AuthResponse signUp(SignUpRequest request) {
@@ -116,5 +122,32 @@ public class AuthServiceImpl implements AuthService {
 
         // Xóa token sau khi dùng
         tokenRepository.delete(verificationToken);
+    }
+
+    @Override
+    public void logout(HttpServletRequest request) {
+        final String authHeader = request.getHeader("Authorization");
+
+        // Kiểm tra xem có header Authorization và có bắt đầu bằng "Bearer " không
+        if (!StringUtils.hasText(authHeader) || !authHeader.startsWith("Bearer ")) {
+            // Nếu không có token hợp lệ, không cần làm gì cả
+            return;
+        }
+
+        final String token = authHeader.substring(7);
+
+        // Lấy ngày hết hạn từ token
+        var expiryDate = jwtService.extractClaim(token, claims -> claims.getExpiration())
+                .toInstant()
+                .atZone(ZoneId.systemDefault())
+                .toLocalDateTime();
+
+        // Lưu token vào blacklist
+        InvalidatedToken invalidatedToken = InvalidatedToken.builder()
+                .token(token)
+                .expiryDate(expiryDate)
+                .build();
+
+        invalidatedTokenRepository.save(invalidatedToken);
     }
 }

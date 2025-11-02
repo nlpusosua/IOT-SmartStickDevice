@@ -1,5 +1,6 @@
 package com.example.IOT_SmartStick.config.security;
 
+import com.example.IOT_SmartStick.repository.InvalidatedTokenRepository;
 import com.example.IOT_SmartStick.service.JwtService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -22,6 +23,7 @@ import java.io.IOException;
 public class JwtAuthFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
+    private final InvalidatedTokenRepository invalidatedTokenRepository;
     @Override
     protected void doFilterInternal(
             @NonNull HttpServletRequest request,
@@ -41,7 +43,15 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         // 2. Lấy token từ header (sau chữ "Bearer ")
         jwt = authHeader.substring(7);
-
+        // ===== KIỂM TRA BLACKLIST =====
+        boolean isTokenBlacklisted = invalidatedTokenRepository.findByToken(jwt).isPresent();
+        if (isTokenBlacklisted) {
+            // Nếu token có trong blacklist, từ chối ngay lập tức
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.getWriter().write("Token has been invalidated (logged out)");
+            return;
+        }
+        // ==============================
         // 3. Trích xuất email (username) từ token
         userEmail = jwtService.extractUsername(jwt);
 
