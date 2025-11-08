@@ -19,7 +19,6 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
-
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
@@ -27,11 +26,13 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
     private final JwtAuthFilter jwtAuthFilter;
     private final UserDetailsService userDetailsService;
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
+                        // Cho phép tất cả các endpoint auth (bao gồm refresh-token)
                         .requestMatchers("/api/v1/auth/**").permitAll()
                         // Ví dụ: Yêu cầu quyền ADMIN cho "/api/admin/**"
                         // .requestMatchers("/api/admin/**").hasRole("ADMIN")

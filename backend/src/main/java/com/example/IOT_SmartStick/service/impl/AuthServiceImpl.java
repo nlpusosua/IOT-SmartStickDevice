@@ -3,9 +3,11 @@ package com.example.IOT_SmartStick.service.impl;
 import com.example.IOT_SmartStick.constant.UserRole;
 import com.example.IOT_SmartStick.constant.UserStatus;
 import com.example.IOT_SmartStick.dto.request.LoginRequest;
+import com.example.IOT_SmartStick.dto.request.RefreshTokenRequest;
 import com.example.IOT_SmartStick.dto.request.SignUpRequest;
 import com.example.IOT_SmartStick.dto.response.AuthResponse;
 import com.example.IOT_SmartStick.entity.InvalidatedToken;
+import com.example.IOT_SmartStick.entity.RefreshToken;
 import com.example.IOT_SmartStick.entity.User;
 import com.example.IOT_SmartStick.entity.VerificationToken;
 import com.example.IOT_SmartStick.repository.InvalidatedTokenRepository;
@@ -14,6 +16,7 @@ import com.example.IOT_SmartStick.repository.VerificationTokenRepository;
 import com.example.IOT_SmartStick.service.AuthService;
 import com.example.IOT_SmartStick.service.EmailService;
 import com.example.IOT_SmartStick.service.JwtService;
+import com.example.IOT_SmartStick.service.RefreshTokenService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -43,6 +46,8 @@ public class AuthServiceImpl implements AuthService {
     private final VerificationTokenRepository tokenRepository;
     private final EmailService emailService;
     private final InvalidatedTokenRepository invalidatedTokenRepository;
+    private final RefreshTokenService refreshTokenService;
+
     @Override
     @Transactional
     public AuthResponse signUp(SignUpRequest request) {
@@ -56,26 +61,28 @@ public class AuthServiceImpl implements AuthService {
                 .password(passwordEncoder.encode(request.getPassword()))
                 .phone(request.getPhone())
                 .role(UserRole.CAREGIVER)
-                .status(UserStatus.PENDING_VERIFICATION) // Vẫn là PENDING
+                .status(UserStatus.PENDING_VERIFICATION)
                 .build();
 
-        // 1. Lưu user trước
         User savedUser = userRepository.save(user);
 
-        // 2. Tạo token
         String token = UUID.randomUUID().toString();
         VerificationToken verificationToken = new VerificationToken(token, savedUser);
         tokenRepository.save(verificationToken);
 
-        // 3. Gửi email (nên chạy bất đồng bộ @Async để user không phải chờ)
         emailService.sendVerificationEmail(savedUser, token);
 
         return AuthResponse.builder()
-                .token(null)
+                .accessToken(null)
+                .refreshToken(null)
+                .tokenType("Bearer")
+                .expiresIn(null)
                 .message("Sign up successful. Please check your email to verify your account.")
                 .build();
     }
+
     @Override
+    @Transactional
     public AuthResponse login(LoginRequest request) {
         try {
             authenticationManager.authenticate(
@@ -93,61 +100,99 @@ public class AuthServiceImpl implements AuthService {
         }
 
         final UserDetails userDetails = userDetailsService.loadUserByUsername(request.getEmail());
-        final String jwt = jwtService.generateToken(userDetails);
+        final User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // Tạo access token
+        final String accessToken = jwtService.generateToken(userDetails);
+
+        // Tạo refresh token
+        RefreshToken refreshToken = refreshTokenService.createRefreshToken(user);
 
         return AuthResponse.builder()
-                .token(jwt)
+                .accessToken(accessToken)
+                .refreshToken(refreshToken.getToken())
+                .tokenType("Bearer")
+                .expiresIn(jwtService.getAccessTokenExpiration())
                 .message("Login successful")
                 .build();
     }
 
     @Override
     public void verifyAccount(String token) {
-        // Tìm token
         VerificationToken verificationToken = tokenRepository.findByToken(token)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid or expired token"));
 
-        // Kiểm tra token hết hạn
         if (verificationToken.getExpiryDate().isBefore(LocalDateTime.now())) {
-            tokenRepository.delete(verificationToken); // Xóa token cũ
+            tokenRepository.delete(verificationToken);
             throw new IllegalArgumentException("Token has expired. Please sign up again.");
         }
 
-        // Kích hoạt user
         User user = verificationToken.getUser();
         if (user.getStatus() != UserStatus.ACTIVE) {
             user.setStatus(UserStatus.ACTIVE);
             userRepository.save(user);
         }
 
-        // Xóa token sau khi dùng
         tokenRepository.delete(verificationToken);
     }
 
     @Override
+    @Transactional
     public void logout(HttpServletRequest request) {
         final String authHeader = request.getHeader("Authorization");
 
-        // Kiểm tra xem có header Authorization và có bắt đầu bằng "Bearer " không
         if (!StringUtils.hasText(authHeader) || !authHeader.startsWith("Bearer ")) {
-            // Nếu không có token hợp lệ, không cần làm gì cả
             return;
         }
 
-        final String token = authHeader.substring(7);
+        final String accessToken = authHeader.substring(7);
 
-        // Lấy ngày hết hạn từ token
-        var expiryDate = jwtService.extractClaim(token, claims -> claims.getExpiration())
+        // Lấy ngày hết hạn từ access token
+        var expiryDate = jwtService.extractClaim(accessToken, claims -> claims.getExpiration())
                 .toInstant()
                 .atZone(ZoneId.systemDefault())
                 .toLocalDateTime();
 
-        // Lưu token vào blacklist
+        // Lưu access token vào blacklist
         InvalidatedToken invalidatedToken = InvalidatedToken.builder()
-                .token(token)
+                .token(accessToken)
                 .expiryDate(expiryDate)
                 .build();
-
         invalidatedTokenRepository.save(invalidatedToken);
+
+        // Lấy refresh token từ request body hoặc header (nếu có)
+        // Để đơn giản, bạn có thể thu hồi tất cả refresh token của user
+        String userEmail = jwtService.extractUsername(accessToken);
+        User user = userRepository.findByEmail(userEmail).orElse(null);
+        if (user != null) {
+            refreshTokenService.revokeAllUserRefreshTokens(user);
+        }
+    }
+
+    @Override
+    @Transactional
+    public AuthResponse refreshToken(RefreshTokenRequest request) {
+        String refreshTokenString = request.getRefreshToken();
+
+        // Verify refresh token
+        RefreshToken refreshToken = refreshTokenService.verifyRefreshToken(refreshTokenString);
+        User user = refreshToken.getUser();
+
+        // Tạo access token mới
+        UserDetails userDetails = userDetailsService.loadUserByUsername(user.getEmail());
+        String newAccessToken = jwtService.generateToken(userDetails);
+
+        // Option 1: Giữ nguyên refresh token cũ
+        // Option 2: Tạo refresh token mới (rotation strategy - bảo mật cao hơn)
+        // Ở đây tôi chọn Option 1 - giữ nguyên refresh token
+
+        return AuthResponse.builder()
+                .accessToken(newAccessToken)
+                .refreshToken(refreshTokenString) // Giữ nguyên refresh token
+                .tokenType("Bearer")
+                .expiresIn(jwtService.getAccessTokenExpiration())
+                .message("Token refreshed successfully")
+                .build();
     }
 }

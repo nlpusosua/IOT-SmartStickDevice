@@ -10,6 +10,9 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class AuthResponse {
-    private String token;
+    private String accessToken;      // Đổi tên từ token -> accessToken
+    private String refreshToken;     // Thêm refresh token
+    private String tokenType;        // "Bearer"
+    private Long expiresIn;          // Thời gian hết hạn của access token (ms)
     private String message;
 }

@@ -56,4 +56,7 @@ public class User {
     // Mối quan hệ: Một User (Caregiver) có thể sở hữu nhiều Device
     @OneToMany(mappedBy = "owner")
     private List<Device> devices;
+    // Thêm vào User.java sau dòng @OneToMany(mappedBy = "owner")
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<RefreshToken> refreshTokens;
 }

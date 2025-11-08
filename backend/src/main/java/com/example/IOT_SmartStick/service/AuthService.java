@@ -1,6 +1,7 @@
 package com.example.IOT_SmartStick.service;
 
 import com.example.IOT_SmartStick.dto.request.LoginRequest;
+import com.example.IOT_SmartStick.dto.request.RefreshTokenRequest;
 import com.example.IOT_SmartStick.dto.request.SignUpRequest;
 import com.example.IOT_SmartStick.dto.response.AuthResponse;
 import jakarta.servlet.http.HttpServletRequest;
@@ -11,4 +12,7 @@ public interface AuthService {
 
     void verifyAccount(String token);
     void logout(HttpServletRequest request);
+
+    AuthResponse refreshToken(RefreshTokenRequest request);
+
 }

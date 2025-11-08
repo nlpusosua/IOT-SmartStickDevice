@@ -1,6 +1,7 @@
 package com.example.IOT_SmartStick.controller;
 
 import com.example.IOT_SmartStick.dto.request.LoginRequest;
+import com.example.IOT_SmartStick.dto.request.RefreshTokenRequest;
 import com.example.IOT_SmartStick.dto.request.SignUpRequest;
 import com.example.IOT_SmartStick.dto.response.AuthResponse;
 import com.example.IOT_SmartStick.service.AuthService;
@@ -26,6 +27,7 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }
     }
+
     @PostMapping("/login")
     public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request) {
         try {
@@ -40,7 +42,6 @@ public class AuthController {
     public ResponseEntity<String> verifyAccount(@RequestParam("token") String token) {
         try {
             authService.verifyAccount(token);
-            // Bạn có thể trả về một trang HTML đẹp thay vì chỉ là text
             return ResponseEntity.ok("Tài khoản của bạn đã được kích hoạt thành công!");
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
@@ -55,6 +56,24 @@ public class AuthController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("An error occurred during logout: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Endpoint mới: Refresh access token
+     * POST /api/v1/auth/refresh-token
+     * Body: { "refreshToken": "uuid-string" }
+     */
+    @PostMapping("/refresh-token")
+    public ResponseEntity<?> refreshToken(@Valid @RequestBody RefreshTokenRequest request) {
+        try {
+            AuthResponse response = authService.refreshToken(request);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("An error occurred: " + e.getMessage());
         }
     }
 }
