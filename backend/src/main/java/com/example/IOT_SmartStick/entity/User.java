@@ -1,6 +1,5 @@
 package com.example.IOT_SmartStick.entity;
 
-
 import com.example.IOT_SmartStick.constant.UserRole;
 import com.example.IOT_SmartStick.constant.UserStatus;
 import jakarta.persistence.*;
@@ -32,7 +31,7 @@ public class User {
     private String email;
 
     @Column(nullable = false)
-    private String password; // Trong code, đây sẽ là password đã mã hóa
+    private String password;
 
     private String phone;
 
@@ -53,10 +52,8 @@ public class User {
     @UpdateTimestamp
     private LocalDateTime updatedAt;
 
-    // Mối quan hệ: Một User (Caregiver) có thể sở hữu nhiều Device
     @OneToMany(mappedBy = "owner")
     private List<Device> devices;
-    // Thêm vào User.java sau dòng @OneToMany(mappedBy = "owner")
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<RefreshToken> refreshTokens;
+
+    // ← XÓA phần @OneToMany(mappedBy = "user") với RefreshToken
 }

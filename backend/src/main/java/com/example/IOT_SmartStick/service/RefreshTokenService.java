@@ -1,90 +1,72 @@
 package com.example.IOT_SmartStick.service;
 
-import com.example.IOT_SmartStick.entity.RefreshToken;
 import com.example.IOT_SmartStick.entity.User;
-import com.example.IOT_SmartStick.repository.RefreshTokenRepository;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
-import java.util.Optional;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class RefreshTokenService {
 
-    private final RefreshTokenRepository refreshTokenRepository;
     private final JwtService jwtService;
+    private final RedisTokenService redisTokenService;
 
     /**
      * Tạo refresh token mới cho user
      */
-    @Transactional
-    public RefreshToken createRefreshToken(User user) {
-        // Xóa các refresh token cũ của user (nếu muốn chỉ cho phép 1 device)
-        // refreshTokenRepository.deleteByUser(user);
+    public String createRefreshToken(User user) {
+        // Tạo UUID token
+        String tokenString = UUID.randomUUID().toString();
 
-        String tokenString = jwtService.generateRefreshToken();
+        // Lấy thời gian hết hạn (milliseconds -> seconds)
         long expirationMs = jwtService.getRefreshTokenExpiration();
-        LocalDateTime expiryDate = LocalDateTime.now().plusSeconds(expirationMs / 1000);
+        long expirationSeconds = expirationMs / 1000;
 
-        RefreshToken refreshToken = RefreshToken.builder()
-                .token(tokenString)
-                .user(user)
-                .expiryDate(expiryDate)
-                .revoked(false)
-                .build();
+        // Lưu vào Redis
+        redisTokenService.saveRefreshToken(tokenString, user.getId(), expirationSeconds);
 
-        return refreshTokenRepository.save(refreshToken);
+        return tokenString;
     }
 
     /**
-     * Tìm và validate refresh token
+     * Verify refresh token
      */
-    public RefreshToken verifyRefreshToken(String token) {
-        RefreshToken refreshToken = refreshTokenRepository.findByToken(token)
-                .orElseThrow(() -> new IllegalArgumentException("Refresh token not found"));
-
-        // Kiểm tra token đã bị revoke chưa
-        if (refreshToken.isRevoked()) {
-            throw new IllegalArgumentException("Refresh token has been revoked");
+    public Integer verifyRefreshToken(String token) {
+        // Kiểm tra token có tồn tại trong Redis không
+        if (!redisTokenService.existsRefreshToken(token)) {
+            throw new IllegalArgumentException("Refresh token not found or expired");
         }
 
-        // Kiểm tra token hết hạn chưa
-        if (refreshToken.getExpiryDate().isBefore(LocalDateTime.now())) {
-            refreshTokenRepository.delete(refreshToken);
-            throw new IllegalArgumentException("Refresh token has expired");
+        // Lấy userId
+        Integer userId = redisTokenService.getUserIdByRefreshToken(token);
+        if (userId == null) {
+            throw new IllegalArgumentException("Invalid refresh token");
         }
 
-        return refreshToken;
+        return userId;
     }
 
     /**
      * Thu hồi refresh token (khi logout)
      */
-    @Transactional
-    public void revokeRefreshToken(String token) {
-        Optional<RefreshToken> refreshToken = refreshTokenRepository.findByToken(token);
-        refreshToken.ifPresent(rt -> {
-            rt.setRevoked(true);
-            refreshTokenRepository.save(rt);
-        });
+    public void revokeRefreshToken(String token, Integer userId) {
+        redisTokenService.revokeRefreshToken(token, userId);
     }
 
     /**
      * Thu hồi tất cả refresh token của user (logout all devices)
      */
-    @Transactional
     public void revokeAllUserRefreshTokens(User user) {
-        refreshTokenRepository.deleteByUser(user);
+        redisTokenService.revokeAllUserRefreshTokens(user.getId());
     }
 
     /**
-     * Xóa các refresh token đã hết hạn (cleanup task)
+     * Cleanup không cần thiết nữa vì Redis tự động xóa khi hết hạn
      */
-    @Transactional
     public void cleanupExpiredTokens() {
-        refreshTokenRepository.deleteByExpiryDateBefore(LocalDateTime.now());
+        // Redis tự động xóa key khi hết hạn (TTL)
+        // Method này giữ lại để tương thích nhưng không làm gì
     }
 }

@@ -6,17 +6,16 @@ import com.example.IOT_SmartStick.dto.request.LoginRequest;
 import com.example.IOT_SmartStick.dto.request.RefreshTokenRequest;
 import com.example.IOT_SmartStick.dto.request.SignUpRequest;
 import com.example.IOT_SmartStick.dto.response.AuthResponse;
-import com.example.IOT_SmartStick.entity.InvalidatedToken;
-import com.example.IOT_SmartStick.entity.RefreshToken;
 import com.example.IOT_SmartStick.entity.User;
 import com.example.IOT_SmartStick.entity.VerificationToken;
-import com.example.IOT_SmartStick.repository.InvalidatedTokenRepository;
 import com.example.IOT_SmartStick.repository.UserRepository;
 import com.example.IOT_SmartStick.repository.VerificationTokenRepository;
 import com.example.IOT_SmartStick.service.AuthService;
 import com.example.IOT_SmartStick.service.EmailService;
 import com.example.IOT_SmartStick.service.JwtService;
+import com.example.IOT_SmartStick.service.RedisTokenService;  // ← THÊM
 import com.example.IOT_SmartStick.service.RefreshTokenService;
+import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -31,7 +30,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
-import java.time.ZoneId;
+import java.util.Date;
 import java.util.UUID;
 
 @Service
@@ -45,7 +44,7 @@ public class AuthServiceImpl implements AuthService {
     private final UserDetailsService userDetailsService;
     private final VerificationTokenRepository tokenRepository;
     private final EmailService emailService;
-    private final InvalidatedTokenRepository invalidatedTokenRepository;
+    private final RedisTokenService redisTokenService;  // ← THÊM
     private final RefreshTokenService refreshTokenService;
 
     @Override
@@ -106,12 +105,12 @@ public class AuthServiceImpl implements AuthService {
         // Tạo access token
         final String accessToken = jwtService.generateToken(userDetails);
 
-        // Tạo refresh token
-        RefreshToken refreshToken = refreshTokenService.createRefreshToken(user);
+        // Tạo refresh token (trả về String UUID)
+        String refreshToken = refreshTokenService.createRefreshToken(user);  // ← THAY ĐỔI
 
         return AuthResponse.builder()
                 .accessToken(accessToken)
-                .refreshToken(refreshToken.getToken())
+                .refreshToken(refreshToken)
                 .tokenType("Bearer")
                 .expiresIn(jwtService.getAccessTokenExpiration())
                 .message("Login successful")
@@ -148,21 +147,17 @@ public class AuthServiceImpl implements AuthService {
 
         final String accessToken = authHeader.substring(7);
 
-        // Lấy ngày hết hạn từ access token
-        var expiryDate = jwtService.extractClaim(accessToken, claims -> claims.getExpiration())
-                .toInstant()
-                .atZone(ZoneId.systemDefault())
-                .toLocalDateTime();
+        // Tính thời gian hết hạn còn lại của access token
+        Claims claims = jwtService.extractClaim(accessToken, c -> c);
+        Date expiration = claims.getExpiration();
+        long expirationSeconds = (expiration.getTime() - System.currentTimeMillis()) / 1000;
 
-        // Lưu access token vào blacklist
-        InvalidatedToken invalidatedToken = InvalidatedToken.builder()
-                .token(accessToken)
-                .expiryDate(expiryDate)
-                .build();
-        invalidatedTokenRepository.save(invalidatedToken);
+        if (expirationSeconds > 0) {
+            // Thêm vào blacklist trong Redis
+            redisTokenService.addToBlacklist(accessToken, expirationSeconds);  // ← THAY ĐỔI
+        }
 
-        // Lấy refresh token từ request body hoặc header (nếu có)
-        // Để đơn giản, bạn có thể thu hồi tất cả refresh token của user
+        // Revoke refresh token
         String userEmail = jwtService.extractUsername(accessToken);
         User user = userRepository.findByEmail(userEmail).orElse(null);
         if (user != null) {
@@ -175,21 +170,20 @@ public class AuthServiceImpl implements AuthService {
     public AuthResponse refreshToken(RefreshTokenRequest request) {
         String refreshTokenString = request.getRefreshToken();
 
-        // Verify refresh token
-        RefreshToken refreshToken = refreshTokenService.verifyRefreshToken(refreshTokenString);
-        User user = refreshToken.getUser();
+        // Verify refresh token và lấy userId
+        Integer userId = refreshTokenService.verifyRefreshToken(refreshTokenString);  // ← THAY ĐỔI
+
+        // Lấy user từ DB
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
         // Tạo access token mới
         UserDetails userDetails = userDetailsService.loadUserByUsername(user.getEmail());
         String newAccessToken = jwtService.generateToken(userDetails);
 
-        // Option 1: Giữ nguyên refresh token cũ
-        // Option 2: Tạo refresh token mới (rotation strategy - bảo mật cao hơn)
-        // Ở đây tôi chọn Option 1 - giữ nguyên refresh token
-
         return AuthResponse.builder()
                 .accessToken(newAccessToken)
-                .refreshToken(refreshTokenString) // Giữ nguyên refresh token
+                .refreshToken(refreshTokenString)
                 .tokenType("Bearer")
                 .expiresIn(jwtService.getAccessTokenExpiration())
                 .message("Token refreshed successfully")
