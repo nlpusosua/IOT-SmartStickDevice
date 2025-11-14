@@ -34,6 +34,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // Cho phép tất cả các endpoint auth (bao gồm refresh-token)
                         .requestMatchers("/api/v1/auth/**").permitAll()
+                        .requestMatchers("/api/device/**").permitAll()
                         // Ví dụ: Yêu cầu quyền ADMIN cho "/api/admin/**"
                         // .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
