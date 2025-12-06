@@ -73,7 +73,7 @@ const SmartCaneDashboard = () => {
 
   const { isLoaded } = useJsApiLoader({
     id: "google-map-script",
-    googleMapsApiKey: "YOUR_GOOGLE_MAPS_API_KEY", // Nhớ thay API Key của bạn
+    googleMapsApiKey: "AIzaSyAYnKlrmZcmNK8TJme_TAsaJUnOYx3q4kU", // Nhớ thay API Key của bạn
   });
 
   const mapContainerStyle = {
