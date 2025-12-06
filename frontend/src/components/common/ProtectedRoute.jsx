@@ -1,34 +1,40 @@
-// FRONTEND/src/components/common/ProtectedRoute.jsx
 import React from 'react';
-import { Navigate } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
+import { Navigate, useLocation } from 'react-router-dom';
 
 /**
- * Component bảo vệ các route yêu cầu authentication
- * Nếu user chưa đăng nhập -> redirect về /login
- * Nếu đã đăng nhập -> hiển thị children (component con)
+ * Component bảo vệ các route cần authentication
+ * Nếu user chưa login → redirect về /login
+ * Nếu đã login → render children (component được bảo vệ)
  */
 const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated, loading } = useAuth();
+  const location = useLocation();
+  
+  /**
+   * Kiểm tra xem user đã login chưa
+   * Cách đơn giản: Check có accessToken trong localStorage không
+   * Cách phức tạp hơn: Decode JWT và check expiry time
+   */
+  const isAuthenticated = () => {
+    const token = localStorage.getItem('accessToken');
+    
+    if (!token) {
+      return false;
+    }
 
-  // Đang check auth, hiển thị loading
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Đang tải...</p>
-        </div>
-      </div>
-    );
+    // TODO: Có thể thêm logic decode JWT và check expiry
+    // const decoded = jwtDecode(token);
+    // return decoded.exp * 1000 > Date.now();
+    
+    return true;
+  };
+
+  // Nếu chưa login → Redirect về login page
+  // Lưu current location để sau khi login xong có thể quay lại đúng trang
+  if (!isAuthenticated()) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // Chưa đăng nhập -> redirect login
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
-
-  // Đã đăng nhập -> hiển thị trang
+  // Đã login → Render component con
   return children;
 };
 
