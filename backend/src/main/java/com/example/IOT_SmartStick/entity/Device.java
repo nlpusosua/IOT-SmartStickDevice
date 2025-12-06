@@ -33,7 +33,7 @@ public class Device {
 
     // Mối quan hệ: Nhiều Device thuộc về một User (Owner)
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "owner_id", nullable = false)
+    @JoinColumn(name = "owner_id", nullable = true)
     private User owner;
 
     // Mối quan hệ: Một Device có nhiều Locations
