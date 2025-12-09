@@ -1,5 +1,6 @@
 package com.example.IOT_SmartStick.dto.response;
 
+import com.example.IOT_SmartStick.constant.DeviceStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -15,7 +16,9 @@ public class DeviceResponseDTO {
     private Integer id;
     private String name;
     private String deviceToken;
+    private DeviceStatus status;
     private LocalDateTime createdAt;
+    private LocalDateTime lastUpdate;
     private Integer ownerId;
     private String ownerName;
 }

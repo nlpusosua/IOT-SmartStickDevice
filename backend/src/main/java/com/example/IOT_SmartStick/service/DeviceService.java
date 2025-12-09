@@ -1,28 +1,41 @@
 package com.example.IOT_SmartStick.service;
 
-
 import com.example.IOT_SmartStick.dto.DeviceUpdateDTO;
 import com.example.IOT_SmartStick.dto.request.AdminDeviceRequestDTO;
-import com.example.IOT_SmartStick.dto.request.DeviceRequestDTO;
+import com.example.IOT_SmartStick.dto.request.ClaimDeviceRequest;
 import com.example.IOT_SmartStick.dto.response.DeviceResponseDTO;
 
 import java.util.List;
 
 public interface DeviceService {
-    DeviceResponseDTO createDevice(DeviceRequestDTO requestDTO, Integer ownerId);
+    // ========== USER ENDPOINTS ==========
 
-    DeviceResponseDTO getDeviceById(Integer id);
+    // User claim device bằng device token
+    DeviceResponseDTO claimDevice(ClaimDeviceRequest request, String token);
 
-    List<DeviceResponseDTO> getAllDevices();
+    // Lấy danh sách device của user (đã claim)
+    List<DeviceResponseDTO> getMyDevices(String token);
 
-    List<DeviceResponseDTO> getDevicesByOwnerId(Integer ownerId);
+    // User cập nhật tên device của mình
+    DeviceResponseDTO updateMyDevice(Integer id, DeviceUpdateDTO updateDTO, String token);
 
-    DeviceResponseDTO updateDevice(Integer id, DeviceUpdateDTO updateDTO);
+    // User xóa device khỏi tài khoản (set owner = null)
+    void removeDeviceFromAccount(Integer id, String token);
 
-    void deleteDevice(Integer id);
-    // --- PHẦN MỚI CHO ADMIN (CRUD KHO) ---
+    // ========== ADMIN ENDPOINTS ==========
+
+    // Admin tạo device mới (nhập kho)
     DeviceResponseDTO adminCreateDevice(AdminDeviceRequestDTO request);
+
+    // Admin lấy tất cả devices
     List<DeviceResponseDTO> adminGetAllDevices();
+
+    // Admin cập nhật device (token, name)
     DeviceResponseDTO adminUpdateDevice(Integer id, AdminDeviceRequestDTO request);
-    void adminDeleteDevice(Integer id); // Admin xóa vĩnh viễn thiết bị khỏi DB
+
+    // Admin xóa vĩnh viễn device khỏi DB
+    void adminDeleteDevice(Integer id);
+
+    // ========== COMMON ==========
+    DeviceResponseDTO getDeviceById(Integer id);
 }

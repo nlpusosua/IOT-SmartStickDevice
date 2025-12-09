@@ -1,8 +1,9 @@
 package com.example.IOT_SmartStick.service.impl;
 
+import com.example.IOT_SmartStick.constant.DeviceStatus;
 import com.example.IOT_SmartStick.dto.DeviceUpdateDTO;
 import com.example.IOT_SmartStick.dto.request.AdminDeviceRequestDTO;
-import com.example.IOT_SmartStick.dto.request.DeviceRequestDTO;
+import com.example.IOT_SmartStick.dto.request.ClaimDeviceRequest;
 import com.example.IOT_SmartStick.dto.response.DeviceResponseDTO;
 import com.example.IOT_SmartStick.entity.Device;
 import com.example.IOT_SmartStick.entity.User;
@@ -11,11 +12,11 @@ import com.example.IOT_SmartStick.exception.ResourceNotFoundException;
 import com.example.IOT_SmartStick.repository.DeviceRepository;
 import com.example.IOT_SmartStick.repository.UserRepository;
 import com.example.IOT_SmartStick.service.DeviceService;
+import com.example.IOT_SmartStick.service.JwtService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -24,97 +25,114 @@ import java.util.stream.Collectors;
 public class DeviceServiceImpl implements DeviceService {
     private final DeviceRepository deviceRepository;
     private final UserRepository userRepository;
+    private final JwtService jwtService;
+
+    // ==================== USER METHODS ====================
 
     @Override
     @Transactional
-    public DeviceResponseDTO createDevice(DeviceRequestDTO requestDTO, Integer ownerId) {
-        // 1. Tìm User
-        User owner = userRepository.findById(ownerId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + ownerId));
+    public DeviceResponseDTO claimDevice(ClaimDeviceRequest request, String token) {
+        // Lấy thông tin user từ token
+        String email = jwtService.extractUsername(token);
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        // 2. Tìm thiết bị dựa trên Device Token (Token người dùng nhập vào)
-        Device device = deviceRepository.findByDeviceToken(requestDTO.getDeviceToken())
-                .orElseThrow(() -> new ResourceNotFoundException("Mã thiết bị không hợp lệ hoặc không tồn tại trong hệ thống!"));
+        // Tìm device theo token
+        Device device = deviceRepository.findByDeviceToken(request.getDeviceToken())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Không tìm thấy thiết bị với mã: " + request.getDeviceToken()));
 
-        // 3. Kiểm tra xem thiết bị này đã có chủ chưa
+        // Kiểm tra device đã có chủ chưa
         if (device.getOwner() != null) {
-            throw new DuplicateResourceException("Thiết bị này đã được kích hoạt bởi người khác!");
+            throw new IllegalStateException("Thiết bị này đã được kích hoạt bởi người dùng khác");
         }
 
-        // 4. Nếu hợp lệ (Có trong DB và chưa có chủ) -> Cập nhật thông tin
-        device.setOwner(owner); // Gán chủ sở hữu
-        device.setName(requestDTO.getName()); // Đặt tên gợi nhớ (VD: Gậy của Ông)
-        device.setCreatedAt(LocalDateTime.now()); // Cập nhật lại ngày kích hoạt nếu muốn
+        // Gán owner và đặt tên
+        device.setOwner(user);
+        device.setName(request.getName());
 
-        // 5. Lưu lại
         Device savedDevice = deviceRepository.save(device);
         return convertToResponseDTO(savedDevice);
     }
-    @Override
-    public DeviceResponseDTO getDeviceById(Integer id) {
-        Device device = deviceRepository.findById(id)
-                .orElseThrow(()-> new ResourceNotFoundException("Device not found with id: "+ id));
-        return convertToResponseDTO(device);
-    }
 
     @Override
-    public List<DeviceResponseDTO> getAllDevices() {
-        return deviceRepository.findAll().stream()
+    public List<DeviceResponseDTO> getMyDevices(String token) {
+        String email = jwtService.extractUsername(token);
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        return deviceRepository.findByOwnerId(user.getId()).stream()
                 .map(this::convertToResponseDTO)
                 .collect(Collectors.toList());
     }
 
     @Override
-    public List<DeviceResponseDTO> getDevicesByOwnerId(Integer ownerId) {
-        if (!userRepository.existsById(ownerId)){
-            throw new ResourceNotFoundException("User not found with id: " + ownerId);
+    @Transactional
+    public DeviceResponseDTO updateMyDevice(Integer id, DeviceUpdateDTO updateDTO, String token) {
+        // Lấy thông tin user
+        String email = jwtService.extractUsername(token);
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        // Tìm device
+        Device device = deviceRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Device not found with id: " + id));
+
+        // Kiểm tra quyền sở hữu
+        if (device.getOwner() == null || !device.getOwner().getId().equals(user.getId())) {
+            throw new SecurityException("Bạn không có quyền chỉnh sửa thiết bị này");
         }
-        return deviceRepository.findByOwnerId(ownerId).stream()
-                .map(this::convertToResponseDTO)
-                .collect(Collectors.toList());
-    }
 
-    @Override
-    public DeviceResponseDTO updateDevice(Integer id, DeviceUpdateDTO updateDTO) {
-        Device device = deviceRepository.findById(id)
-                .orElseThrow(()-> new ResourceNotFoundException("Device not found with id: " + id));
-        if (updateDTO.getName() != null && !updateDTO.getName().isBlank()){
+        // Chỉ cho phép sửa tên
+        if (updateDTO.getName() != null && !updateDTO.getName().isBlank()) {
             device.setName(updateDTO.getName());
         }
-        if (updateDTO.getDeviceToken() != null && !updateDTO.getDeviceToken().isBlank()){
-            if (!device.getDeviceToken().equals(updateDTO.getDeviceToken()) && deviceRepository.existsByDeviceToken(updateDTO.getDeviceToken())){
-                throw new DuplicateResourceException("Device token already exists: " + updateDTO.getDeviceToken());
-            }
-            device.setDeviceToken(updateDTO.getDeviceToken());
-        }
+
         Device updatedDevice = deviceRepository.save(device);
         return convertToResponseDTO(updatedDevice);
     }
 
     @Override
-    public void deleteDevice(Integer id) {
-        if (!deviceRepository.existsById(id)){
-            throw new ResourceNotFoundException("Device not found with id: " + id);
+    @Transactional
+    public void removeDeviceFromAccount(Integer id, String token) {
+        // Lấy thông tin user
+        String email = jwtService.extractUsername(token);
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        // Tìm device
+        Device device = deviceRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Device not found with id: " + id));
+
+        // Kiểm tra quyền sở hữu
+        if (device.getOwner() == null || !device.getOwner().getId().equals(user.getId())) {
+            throw new SecurityException("Bạn không có quyền xóa thiết bị này");
         }
-        deviceRepository.deleteById(id);
+
+        // Set owner = null (trả device về kho)
+        device.setOwner(null);
+        device.setName("Unclaimed Device"); // Đặt lại tên mặc định
+        deviceRepository.save(device);
     }
 
+    // ==================== ADMIN METHODS ====================
 
-    // ================== PHẦN MỚI CHO ADMIN (CRUD) ==================
     @Override
     @Transactional
     public DeviceResponseDTO adminCreateDevice(AdminDeviceRequestDTO request) {
-        // 1. Check trùng token
+        // Kiểm tra trùng token
         if (deviceRepository.existsByDeviceToken(request.getDeviceToken())) {
             throw new DuplicateResourceException("Token đã tồn tại: " + request.getDeviceToken());
         }
 
-        // 2. Tạo thiết bị rỗng (Chưa có chủ)
+        // Tạo thiết bị rỗng (chưa có chủ)
         Device device = Device.builder()
                 .deviceToken(request.getDeviceToken())
-                .name(request.getName() != null && !request.getName().isBlank() ? request.getName() : "New Device") // Tên mặc định
+                .name(request.getName() != null && !request.getName().isBlank()
+                        ? request.getName()
+                        : "New Device") // Tên mặc định
                 .owner(null) // QUAN TRỌNG: Chưa có chủ
-                .createdAt(LocalDateTime.now())
+                .status(DeviceStatus.OFFLINE) // Mặc định offline
                 .build();
 
         return convertToResponseDTO(deviceRepository.save(device));
@@ -152,6 +170,7 @@ public class DeviceServiceImpl implements DeviceService {
     }
 
     @Override
+    @Transactional
     public void adminDeleteDevice(Integer id) {
         if (!deviceRepository.existsById(id)) {
             throw new ResourceNotFoundException("Device not found with id: " + id);
@@ -159,8 +178,20 @@ public class DeviceServiceImpl implements DeviceService {
         // Xóa vĩnh viễn khỏi DB
         deviceRepository.deleteById(id);
     }
+
+    // ==================== COMMON METHODS ====================
+
+    @Override
+    public DeviceResponseDTO getDeviceById(Integer id) {
+        Device device = deviceRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Device not found with id: " + id));
+        return convertToResponseDTO(device);
+    }
+
+    // ==================== HELPER METHODS ====================
+
     private DeviceResponseDTO convertToResponseDTO(Device device) {
-        // SỬA: Kiểm tra null owner để tránh lỗi NullPointerException
+        // Kiểm tra null owner để tránh lỗi NullPointerException
         Integer ownerId = (device.getOwner() != null) ? device.getOwner().getId() : null;
         String ownerName = (device.getOwner() != null) ? device.getOwner().getFullName() : "Chưa kích hoạt";
 
@@ -168,9 +199,11 @@ public class DeviceServiceImpl implements DeviceService {
                 .id(device.getId())
                 .name(device.getName())
                 .deviceToken(device.getDeviceToken())
+                .status(device.getStatus())
                 .createdAt(device.getCreatedAt())
-                .ownerId(ownerId)     // Có thể null
-                .ownerName(ownerName) // Có thể là "Chưa kích hoạt"
+                .lastUpdate(device.getLastUpdate())
+                .ownerId(ownerId)
+                .ownerName(ownerName)
                 .build();
     }
 }

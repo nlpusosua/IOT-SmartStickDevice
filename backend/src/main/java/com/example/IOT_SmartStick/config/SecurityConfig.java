@@ -18,6 +18,11 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.Arrays;
 
 @Configuration
 @EnableWebSecurity
@@ -31,11 +36,18 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 // Trong SecurityFilterChain
                 .authorizeHttpRequests(auth -> auth
+                        // Cho phép tất cả các endpoint auth (bao gồm refresh-token)
                         .requestMatchers("/api/v1/auth/**").permitAll()
-                        .requestMatchers("/api/device/**").permitAll()
+
+                        // Device endpoints cho user (cần authenticated)
+                        .requestMatchers("/api/device/**").authenticated()
+
+                        // QUAN TRỌNG: Admin endpoints yêu cầu quyền ADMIN
                         .requestMatchers("/api/admin/**").hasAuthority("ADMIN")
+
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -60,5 +72,25 @@ public class SecurityConfig {
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
+    }
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+
+        // Cho phép port 3000
+        configuration.setAllowedOrigins(Arrays.asList("http://localhost:3000"));
+
+        // Cho phép tất cả các method (GET, POST, PUT, DELETE, OPTIONS,...)
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+
+        // Quan trọng: Cho phép các Header (như Authorization, Content-Type)
+        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "x-auth-token"));
+
+        // Cho phép gửi credentials (nếu cần cookie/token)
+        configuration.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration); // Áp dụng cho tất cả API
+        return source;
     }
 }
