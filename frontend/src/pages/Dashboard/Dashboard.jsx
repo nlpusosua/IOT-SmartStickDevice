@@ -1,44 +1,14 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { useJsApiLoader } from "@react-google-maps/api";
+import { getMyDevices } from "../../service/deviceService";
+import { toast } from 'react-toastify';
 
-// Import các component đã tách
+// Import các component
 import Header from "../../components/common/Header";
 import Sidebar from "../../components/common/Sidebar";
 import MapContent from "../../components/map/MapContent";
-
-// Mock data (Có thể tách ra file utils/mockData.js nếu muốn)
-const mockDevices = [
-  {
-    id: 1,
-    deviceId: "SMARTCANE-0001",
-    name: "Ông Nguyễn Văn A",
-    status: "online",
-    location: { lat: 21.028511, lng: 105.804817 },
-    lastUpdate: "2 phút trước",
-    sos: false,
-    geofence: "INSIDE",
-  },
-  {
-    id: 2,
-    deviceId: "SMARTCANE-0002",
-    name: "Bà Trần Thị B",
-    status: "online",
-    location: { lat: 21.030511, lng: 105.806817 },
-    lastUpdate: "5 phút trước",
-    sos: false,
-    geofence: "INSIDE",
-  },
-  {
-    id: 3,
-    deviceId: "SMARTCANE-0003",
-    name: "Ông Lê Văn C",
-    status: "offline",
-    location: { lat: 21.025511, lng: 105.802817 },
-    lastUpdate: "1 giờ trước",
-    sos: true,
-    geofence: "OUTSIDE",
-  },
-];
+import AddDeviceModal from "../../components/device/AddDeviceModal";
+import EditDeviceModal from "../../components/device/EditDeviceModal";
 
 const mockNotifications = [
   {
@@ -58,7 +28,7 @@ const mockNotifications = [
 ];
 
 const SmartCaneDashboard = () => {
-  const [devices, setDevices] = useState(mockDevices);
+  const [devices, setDevices] = useState([]);
   const [selectedDevice, setSelectedDevice] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [notifications, setNotifications] = useState(mockNotifications);
@@ -70,11 +40,53 @@ const SmartCaneDashboard = () => {
     lng: 105.804817,
   });
   const [mapZoom, setMapZoom] = useState(14);
+  const [loading, setLoading] = useState(false);
+
+  // Modal states
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [deviceToEdit, setDeviceToEdit] = useState(null);
 
   const { isLoaded } = useJsApiLoader({
     id: "google-map-script",
-    googleMapsApiKey: "AIzaSyAYnKlrmZcmNK8TJme_TAsaJUnOYx3q4kU", // Nhớ thay API Key của bạn
+    googleMapsApiKey: "AIzaSyAYnKlrmZcmNK8TJme_TAsaJUnOYx3q4kU",
   });
+
+  // Lấy danh sách devices từ API
+  const fetchDevices = async () => {
+    setLoading(true);
+    try {
+      const response = await getMyDevices();
+      
+      // Convert status từ backend (ONLINE/OFFLINE) sang frontend (online/offline)
+      const devicesData = response.map((device, index)=> ({
+        ...device,
+        status: device.status?.toLowerCase() || 'offline',
+        // Mock location data - Bạn sẽ lấy từ API Location sau
+        location: device.location || { 
+          lat: 21.028511 + (index * 0.0099), // Mỗi thiết bị cách nhau 1 chút, nhưng CỐ ĐỊNH
+          lng: 105.804817 + (index * 0.0099)
+        },
+        sos: device.sos || false,
+        geofence: device.geofence || 'INSIDE'
+      }));
+      
+      setDevices(devicesData);
+    } catch (error) {
+      console.error('Error fetching devices:', error);
+      if (error.response?.status === 401) {
+        toast.error('Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại!');
+      } else {
+        toast.error('Không thể tải danh sách thiết bị!');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDevices();
+  }, []);
 
   const mapContainerStyle = {
     width: "100%",
@@ -98,8 +110,10 @@ const SmartCaneDashboard = () => {
 
   const handleDeviceClick = (device) => {
     setSelectedDevice(device);
-    setMapCenter(device.location);
-    setMapZoom(16);
+    if (device.location) {
+      setMapCenter(device.location);
+      setMapZoom(16);
+    }
   };
 
   const handleMapClick = useCallback(() => {
@@ -109,17 +123,38 @@ const SmartCaneDashboard = () => {
   const filteredDevices = devices.filter((device) => {
     const matchesSearch =
       device.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      device.deviceId.toLowerCase().includes(searchQuery.toLowerCase());
+      device.deviceToken.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus =
       filterStatus === "all" || device.status === filterStatus;
     return matchesSearch && matchesStatus;
   });
 
   const getMarkerIcon = (device) => {
-    if (device.sos) return "http://maps.google.com/mapfiles/ms/icons/red-dot.png"; // Bạn có thể thay bằng icon local
-    if (device.status === "offline") return "http://maps.google.com/mapfiles/ms/icons/grey-dot.png";
+    if (device.sos) return "http://maps.google.com/mapfiles/ms/icons/red-dot.png";
     if (device.geofence === "OUTSIDE") return "http://maps.google.com/mapfiles/ms/icons/orange-dot.png";
     return "http://maps.google.com/mapfiles/ms/icons/green-dot.png";
+  };
+
+  const handleAddDevice = () => {
+    setShowAddModal(true);
+  };
+
+  const handleEditDevice = (device) => {
+    setDeviceToEdit(device);
+    setShowEditModal(true);
+  };
+
+  const handleAddSuccess = () => {
+    fetchDevices();
+  };
+
+  const handleEditSuccess = () => {
+    fetchDevices();
+  };
+
+  const handleDeleteSuccess = () => {
+    setSelectedDevice(null); // Clear selected device khi xóa
+    fetchDevices();
   };
 
   return (
@@ -142,25 +177,52 @@ const SmartCaneDashboard = () => {
           setFilterStatus={setFilterStatus}
           showGeofence={showGeofence}
           setShowGeofence={setShowGeofence}
+          onAddDevice={handleAddDevice}
+          onEditDevice={handleEditDevice}
+          onDeleteSuccess={handleDeleteSuccess}
+          loading={loading}
         />
 
         <main className="flex-1 relative">
-          <MapContent 
-            isLoaded={isLoaded}
-            mapContainerStyle={mapContainerStyle}
-            mapCenter={mapCenter}
-            mapZoom={mapZoom}
-            mapOptions={mapOptions}
-            handleMapClick={handleMapClick}
-            devices={filteredDevices}
-            getMarkerIcon={getMarkerIcon}
-            handleDeviceClick={handleDeviceClick}
-            showGeofence={showGeofence}
-            selectedDevice={selectedDevice}
-            setSelectedDevice={setSelectedDevice}
-          />
+          {loading ? (
+            <div className="w-full h-full flex items-center justify-center text-gray-500">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p>Đang tải dữ liệu...</p>
+              </div>
+            </div>
+          ) : (
+            <MapContent 
+              isLoaded={isLoaded}
+              mapContainerStyle={mapContainerStyle}
+              mapCenter={mapCenter}
+              mapZoom={mapZoom}
+              mapOptions={mapOptions}
+              handleMapClick={handleMapClick}
+              devices={filteredDevices}
+              getMarkerIcon={getMarkerIcon}
+              handleDeviceClick={handleDeviceClick}
+              showGeofence={showGeofence}
+              selectedDevice={selectedDevice}
+              setSelectedDevice={setSelectedDevice}
+            />
+          )}
         </main>
       </div>
+
+      {/* Modals */}
+      <AddDeviceModal 
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onSuccess={handleAddSuccess}
+      />
+
+      <EditDeviceModal 
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        device={deviceToEdit}
+        onSuccess={handleEditSuccess}
+      />
     </div>
   );
 };

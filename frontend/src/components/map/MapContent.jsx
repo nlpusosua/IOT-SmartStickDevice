@@ -51,6 +51,7 @@ const MapContent = ({
                 strokeColor: device.geofence === "OUTSIDE" ? "#ff4444" : "#4CAF50",
                 strokeOpacity: 0.5,
                 strokeWeight: 2,
+                clickable: false, // Nên thêm: Để chuột không bị vướng vào vòng tròn khi click map
               }}
             />
           )}
@@ -66,7 +67,7 @@ const MapContent = ({
                 </h3>
                 <div className="space-y-2 text-sm text-gray-600 mb-3">
                   <p><strong>ID:</strong> {device.deviceId}</p>
-                  {/* <p><strong>Pin:</strong> {device.battery}%</p> */}
+                  
                   <p>
                     <strong>Trạng thái:</strong>{" "}
                     {device.status === "online" ? "Online" : "Offline"}

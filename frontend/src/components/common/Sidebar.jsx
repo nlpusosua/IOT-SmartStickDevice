@@ -13,7 +13,11 @@ const Sidebar = ({
   filterStatus, 
   setFilterStatus,
   showGeofence,
-  setShowGeofence
+  setShowGeofence,
+  onAddDevice,
+  onEditDevice,
+  onDeleteSuccess,
+  loading
 }) => {
   return (
     <aside
@@ -25,7 +29,10 @@ const Sidebar = ({
         <h2 className="text-lg font-semibold">
           Thiết bị ({devices.length})
         </h2>
-        <button className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+        <button 
+          onClick={onAddDevice}
+          className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+        >
           <Plus size={20} />
         </button>
       </div>
@@ -37,11 +44,22 @@ const Sidebar = ({
         setFilterStatus={setFilterStatus}
       />
 
-      <DeviceList 
-        devices={devices}
-        selectedDevice={selectedDevice}
-        onDeviceClick={onDeviceClick}
-      />
+      {loading ? (
+        <div className="flex-1 flex items-center justify-center text-gray-500">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+            <p className="text-sm">Đang tải...</p>
+          </div>
+        </div>
+      ) : (
+        <DeviceList 
+          devices={devices}
+          selectedDevice={selectedDevice}
+          onDeviceClick={onDeviceClick}
+          onEdit={onEditDevice}
+          onDeleteSuccess={onDeleteSuccess}
+        />
+      )}
 
       <div className="px-5 py-4 border-t border-gray-200">
         <label className="flex items-center gap-3 cursor-pointer">

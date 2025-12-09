@@ -1,52 +1,120 @@
-// FRONTEND/src/service/deviceService.js
 import axios from './axiosCustomize';
 
-/**
- * Lấy tất cả devices
- * GET /api/device
- */
-export const getAllDevicesAPI = () => {
-  return axios.get('/api/device');
+// ========== USER API ==========
+
+// Lấy danh sách device của user hiện tại
+const getMyDevices = () => {
+  const token = localStorage.getItem('accessToken');
+  return axios.get('/api/device/my-devices', {
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  });
 };
 
-/**
- * Lấy device theo ID
- * GET /api/device/{id}
- */
-export const getDeviceByIdAPI = (id) => {
-  return axios.get(`/api/device/${id}`);
+// User claim device bằng device_token
+const claimDevice = (deviceToken, deviceName) => {
+  const token = localStorage.getItem('accessToken');
+  return axios.post('/api/device/claim', 
+    { 
+      deviceToken, 
+      name: deviceName 
+    },
+    {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    }
+  );
 };
 
-/**
- * Lấy devices theo owner ID
- * GET /api/device/owner/{ownerId}
- */
-export const getDevicesByOwnerAPI = (ownerId) => {
-  return axios.get(`/api/device/owner/${ownerId}`);
+// Cập nhật tên device
+const updateDevice = (deviceId, newName) => {
+  const token = localStorage.getItem('accessToken');
+  return axios.put(`/api/device/${deviceId}`, 
+    { name: newName },
+    {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    }
+  );
 };
 
-/**
- * Tạo device mới
- * POST /api/device?ownerId=xxx
- * Body: { name, deviceToken }
- */
-export const createDeviceAPI = (deviceData, ownerId) => {
-  return axios.post(`/api/device?ownerId=${ownerId}`, deviceData);
+// Xóa device khỏi tài khoản (device quay về kho)
+const removeDevice = (deviceId) => {
+  const token = localStorage.getItem('accessToken');
+  return axios.delete(`/api/device/${deviceId}`, {
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  });
 };
 
-/**
- * Cập nhật device
- * PUT /api/device/{id}
- * Body: { name?, deviceToken? }
- */
-export const updateDeviceAPI = (id, deviceData) => {
-  return axios.put(`/api/device/${id}`, deviceData);
+// ========== ADMIN API (Nếu cần) ==========
+
+// Admin tạo device mới
+const adminCreateDevice = (deviceToken, deviceName) => {
+  const token = localStorage.getItem('accessToken');
+  return axios.post('/api/admin/devices', 
+    { 
+      deviceToken, 
+      name: deviceName 
+    },
+    {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    }
+  );
 };
 
-/**
- * Xóa device
- * DELETE /api/device/{id}
- */
-export const deleteDeviceAPI = (id) => {
-  return axios.delete(`/api/device/${id}`);
+// Admin lấy tất cả devices
+const adminGetAllDevices = () => {
+  const token = localStorage.getItem('accessToken');
+  return axios.get('/api/admin/devices', {
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  });
+};
+
+// Admin cập nhật device
+const adminUpdateDevice = (deviceId, deviceToken, deviceName) => {
+  const token = localStorage.getItem('accessToken');
+  return axios.put(`/api/admin/devices/${deviceId}`, 
+    { 
+      deviceToken, 
+      name: deviceName 
+    },
+    {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    }
+  );
+};
+
+// Admin xóa vĩnh viễn device
+const adminDeleteDevice = (deviceId) => {
+  const token = localStorage.getItem('accessToken');
+  return axios.delete(`/api/admin/devices/${deviceId}`, {
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  });
+};
+
+export { 
+  // User APIs
+  getMyDevices, 
+  claimDevice, 
+  updateDevice, 
+  removeDevice,
+  
+  // Admin APIs
+  adminCreateDevice,
+  adminGetAllDevices,
+  adminUpdateDevice,
+  adminDeleteDevice
 };
