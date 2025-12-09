@@ -1,9 +1,10 @@
 package com.example.IOT_SmartStick.controller;
 
 import com.example.IOT_SmartStick.dto.DeviceUpdateDTO;
-import com.example.IOT_SmartStick.dto.request.DeviceRequestDTO;
+import com.example.IOT_SmartStick.dto.request.ClaimDeviceRequest;
 import com.example.IOT_SmartStick.dto.response.DeviceResponseDTO;
 import com.example.IOT_SmartStick.dto.sendSignal.IngestLocationRequest;
+import com.example.IOT_SmartStick.exception.ResourceNotFoundException;
 import com.example.IOT_SmartStick.service.DeviceService;
 import com.example.IOT_SmartStick.service.IngestService;
 import jakarta.validation.Valid;
@@ -18,59 +19,108 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/device")
 @RequiredArgsConstructor
+@CrossOrigin(origins = "http://localhost:3000")
 public class DeviceController {
     private final DeviceService deviceService;
+
     @Autowired
     private IngestService ingestService;
+
+    // ========== LOCATION ENDPOINT (Từ ESP32) ==========
 
     @PostMapping("/location")
     public ResponseEntity<String> receiveLocation(
             @RequestHeader("Authorization") String authHeader,
             @Valid @RequestBody IngestLocationRequest payload) {
-
         try {
             ingestService.ingestDeviceData(authHeader, payload);
             return ResponseEntity.ok("Data received successfully");
         } catch (SecurityException e) {
-            return ResponseEntity.status(401).body(e.getMessage()); // 401 Unauthorized
+            return ResponseEntity.status(401).body(e.getMessage());
         } catch (Exception e) {
             return ResponseEntity.status(500).body("Internal server error: " + e.getMessage());
         }
     }
 
-    @PostMapping
-    public ResponseEntity<DeviceResponseDTO> creatDevice(@Valid @RequestBody DeviceRequestDTO requestDTO, @RequestParam Integer ownerId){
-        DeviceResponseDTO response = deviceService.createDevice(requestDTO, ownerId);
-        return new ResponseEntity<>(response, HttpStatus.CREATED);
+    // ========== USER DEVICE ENDPOINTS ==========
+
+    /**
+     * User claim device bằng device token
+     * Body: { "deviceToken": "ABC123", "name": "Ông Nguyễn Văn A" }
+     */
+    @PostMapping("/claim")
+    public ResponseEntity<?> claimDevice(
+            @Valid @RequestBody ClaimDeviceRequest request,
+            @RequestHeader("Authorization") String authHeader) {
+        try {
+            String token = authHeader.substring(7);
+            DeviceResponseDTO response = deviceService.claimDevice(request, token);
+            return ResponseEntity.ok(response);
+        } catch (IllegalStateException | ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Có lỗi xảy ra: " + e.getMessage());
+        }
     }
 
+    /**
+     * Lấy danh sách device của user hiện tại
+     */
+    @GetMapping("/my-devices")
+    public ResponseEntity<?> getMyDevices(@RequestHeader("Authorization") String authHeader) {
+        try {
+            String token = authHeader.substring(7);
+            List<DeviceResponseDTO> devices = deviceService.getMyDevices(token);
+            return ResponseEntity.ok(devices);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(e.getMessage());
+        }
+    }
+
+    /**
+     * User cập nhật tên device của mình
+     */
+    @PutMapping("/{id}")
+    public ResponseEntity<?> updateMyDevice(
+            @PathVariable Integer id,
+            @RequestBody DeviceUpdateDTO updateDTO,
+            @RequestHeader("Authorization") String authHeader) {
+        try {
+            String token = authHeader.substring(7);
+            DeviceResponseDTO response = deviceService.updateMyDevice(id, updateDTO, token);
+            return ResponseEntity.ok(response);
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
+    }
+
+    /**
+     * User xóa device khỏi tài khoản (device quay về kho, owner = null)
+     */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> removeDevice(
+            @PathVariable Integer id,
+            @RequestHeader("Authorization") String authHeader) {
+        try {
+            String token = authHeader.substring(7);
+            deviceService.removeDeviceFromAccount(id, token);
+            return ResponseEntity.ok("Đã xóa thiết bị khỏi tài khoản");
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
+    }
+
+    /**
+     * Lấy thông tin chi tiết 1 device
+     */
     @GetMapping("/{id}")
-    public ResponseEntity<DeviceResponseDTO> getDeviceById(@PathVariable Integer id){
+    public ResponseEntity<DeviceResponseDTO> getDeviceById(@PathVariable Integer id) {
         DeviceResponseDTO response = deviceService.getDeviceById(id);
         return ResponseEntity.ok(response);
-    }
-
-    @GetMapping
-    public ResponseEntity<List<DeviceResponseDTO>> getAllDevice(){
-        List<DeviceResponseDTO> devices = deviceService.getAllDevices();
-        return ResponseEntity.ok(devices);
-    }
-
-    @GetMapping("/owner/{ownerId}")
-    public ResponseEntity<List<DeviceResponseDTO>> getDevicesByOwner(@PathVariable Integer ownerId){
-        List<DeviceResponseDTO> devices = deviceService.getDevicesByOwnerId(ownerId);
-        return ResponseEntity.ok(devices);
-    }
-
-    @PutMapping("/{id}")
-    public ResponseEntity<DeviceResponseDTO> updateDevice(@PathVariable Integer id, @RequestBody DeviceUpdateDTO updateDTO){
-        DeviceResponseDTO response = deviceService.updateDevice(id, updateDTO);
-        return ResponseEntity.ok(response);
-    }
-
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteDevice(@PathVariable Integer id) {
-        deviceService.deleteDevice(id);
-        return ResponseEntity.noContent().build();
     }
 }

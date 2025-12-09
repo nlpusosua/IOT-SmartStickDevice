@@ -1,11 +1,13 @@
 package com.example.IOT_SmartStick.entity;
 
+import com.example.IOT_SmartStick.constant.DeviceStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -28,23 +30,29 @@ public class Device {
     @Column(unique = true, nullable = false)
     private String deviceToken;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    @Builder.Default
+    private DeviceStatus status = DeviceStatus.OFFLINE;
+
     @CreationTimestamp
     private LocalDateTime createdAt;
 
-    // Mối quan hệ: Nhiều Device thuộc về một User (Owner)
+    @UpdateTimestamp
+    private LocalDateTime lastUpdate;
+
+    // QUAN TRỌNG: nullable = true
+    // Cho phép owner là null (thiết bị mới tạo trong kho, chưa ai nhận)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "owner_id", nullable = true)
     private User owner;
 
-    // Mối quan hệ: Một Device có nhiều Locations
     @OneToMany(mappedBy = "device", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Location> locations;
 
-    // Mối quan hệ: Một Device có nhiều Geofences
     @OneToMany(mappedBy = "device", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Geofence> geofences;
 
-    // Mối quan hệ: Một Device có nhiều Alerts
     @OneToMany(mappedBy = "device", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Alert> alerts;
 }
