@@ -2,3 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Ép buộc nút confirm có màu nền đỏ và chữ trắng */
+.swal2-confirm {
+  background-color: #d33 !important;
+  color: #ffffff !important;
+}
+
+/* Ép buộc nút cancel có màu nền xanh và chữ trắng */
+.swal2-cancel {
+  background-color: #3085d6 !important;
+  color: #ffffff !important;
+}
