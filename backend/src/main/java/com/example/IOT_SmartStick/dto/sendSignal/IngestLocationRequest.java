@@ -17,9 +17,6 @@ public class IngestLocationRequest {
     @JsonProperty("gps")
     private GpsData gps;
 
-    @NotNull
-    @JsonProperty("battery")
-    private BatteryData battery;
 
     @JsonProperty("network")
     private NetworkData network; // (tự tạo class này)

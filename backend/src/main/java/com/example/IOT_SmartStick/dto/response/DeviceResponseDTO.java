@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor
 public class DeviceResponseDTO {
-    private Integer id;
+    private Long id;
     private String name;
     private String deviceToken;
     private DeviceStatus status;

@@ -40,10 +40,10 @@ public class IngestServiceImpl implements IngestService {
         Location newLocation = new Location();
         newLocation.setDevice(device);
 
-        // 4. Map dữ liệu từ DTO -> Entity
-        newLocation.setLatitude(payload.getGps().getLatitude());
-        newLocation.setLongitude(payload.getGps().getLongitude());
-        newLocation.setBatteryLevel(payload.getBattery().getLevel());
+//        // 4. Map dữ liệu từ DTO -> Entity
+//        newLocation.setLatitude(payload.getGps().getLatitude());
+//        newLocation.setLongitude(payload.getGps().getLongitude());
+
 
         // Xử lý timestamp (nên dùng Instant.parse() để lấy đúng time, tạm thời dùng time server)
         newLocation.setTimestamp(LocalDateTime.from(Instant.now()));

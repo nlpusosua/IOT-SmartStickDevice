@@ -2,7 +2,6 @@ package com.example.IOT_SmartStick.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
@@ -10,26 +9,27 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "locations")
+@Table(name = "locations", indexes = {
+        // Index giúp tìm lịch sử di chuyển của 1 thiết bị trong khoảng thời gian cực nhanh
+        @Index(name = "idx_device_timestamp", columnList = "device_id, timestamp")
+})
 public class Location {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;
-
-    @Column(nullable = false, precision = 10, scale = 8)
-    private BigDecimal latitude;
-
-    @Column(nullable = false, precision = 11, scale = 8)
-    private BigDecimal longitude;
-
-    private Integer batteryLevel;
+    private Long id; // BẮT BUỘC dùng Long, vì bảng này sẽ có triệu bản ghi rất nhanh
 
     @Column(nullable = false)
-    private LocalDateTime timestamp;
+    private Double latitude; // Dùng Double xử lý nhanh hơn BigDecimal cho bản đồ
 
-    // Mối quan hệ: Nhiều Location thuộc về một Device
+    @Column(nullable = false)
+    private Double longitude;
+
+    @Column(nullable = false)
+    private LocalDateTime timestamp; // Thời gian thiết bị ghi nhận vị trí
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "device_id", nullable = false)
+    @ToString.Exclude
     private Device device;
 }
