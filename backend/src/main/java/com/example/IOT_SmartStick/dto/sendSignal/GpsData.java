@@ -10,5 +10,4 @@ public class GpsData {
     private BigDecimal longitude;
     private Double altitude;
     private Double speed;
-    private Integer satellites;
 }
