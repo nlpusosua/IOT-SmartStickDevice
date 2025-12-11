@@ -1,9 +1,9 @@
+// pages/Dashboard/Dashboard.jsx
 import React, { useState, useCallback, useEffect } from "react";
-import { useJsApiLoader } from "@react-google-maps/api";
 import { getMyDevices } from "../../service/deviceService";
 import { toast } from 'react-toastify';
+import axios from 'axios';
 
-// Import các component
 import Header from "../../components/common/Header";
 import Sidebar from "../../components/common/Sidebar";
 import MapContent from "../../components/map/MapContent";
@@ -32,45 +32,39 @@ const SmartCaneDashboard = () => {
   const [selectedDevice, setSelectedDevice] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [notifications, setNotifications] = useState(mockNotifications);
+  
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [showGeofence, setShowGeofence] = useState(true);
-  const [mapCenter, setMapCenter] = useState({
-    lat: 21.028511,
-    lng: 105.804817,
-  });
+
+  const [mapCenter, setMapCenter] = useState([21.028511, 105.804817]); 
   const [mapZoom, setMapZoom] = useState(14);
   const [loading, setLoading] = useState(false);
+
+  // Routing State
+  const [userLocation, setUserLocation] = useState(null);
+  const [routePath, setRoutePath] = useState([]);
 
   // Modal states
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [deviceToEdit, setDeviceToEdit] = useState(null);
 
-  const { isLoaded } = useJsApiLoader({
-    id: "google-map-script",
-    googleMapsApiKey: "AIzaSyAYnKlrmZcmNK8TJme_TAsaJUnOYx3q4kU",
-  });
-
   // Lấy danh sách devices từ API
   const fetchDevices = async () => {
     setLoading(true);
     try {
       const response = await getMyDevices();
-      
-      // Convert status từ backend (ONLINE/OFFLINE) sang frontend (online/offline)
       const devicesData = response.map((device, index)=> ({
         ...device,
         status: device.status?.toLowerCase() || 'offline',
-        // Mock location data - Bạn sẽ lấy từ API Location sau
         location: device.location || { 
-          lat: 21.028511 + (index * 0.0099), // Mỗi thiết bị cách nhau 1 chút, nhưng CỐ ĐỊNH
-          lng: 105.804817 + (index * 0.0099)
+          lat: 21.028511 + (index * 0.01),
+          lng: 105.804817 + (index * 0.01)
         },
         sos: device.sos || false,
         geofence: device.geofence || 'INSIDE'
       }));
-      
       setDevices(devicesData);
     } catch (error) {
       console.error('Error fetching devices:', error);
@@ -86,39 +80,80 @@ const SmartCaneDashboard = () => {
 
   useEffect(() => {
     fetchDevices();
+    
+    // Lấy vị trí hiện tại của User
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation([position.coords.latitude, position.coords.longitude]);
+        },
+        () => {
+          console.warn("Không thể lấy vị trí người dùng");
+        }
+      );
+    }
   }, []);
-
-  const mapContainerStyle = {
-    width: "100%",
-    height: "100%",
-  };
-
-  const mapOptions = {
-    disableDefaultUI: false,
-    zoomControl: true,
-    streetViewControl: false,
-    mapTypeControl: false,
-    fullscreenControl: true,
-    styles: [
-      {
-        featureType: "poi",
-        elementType: "labels",
-        stylers: [{ visibility: "off" }],
-      },
-    ],
-  };
 
   const handleDeviceClick = (device) => {
     setSelectedDevice(device);
     if (device.location) {
-      setMapCenter(device.location);
+      setMapCenter([device.location.lat, device.location.lng]);
       setMapZoom(16);
     }
   };
 
-  const handleMapClick = useCallback(() => {
-    setSelectedDevice(null);
-  }, []);
+  // --- Logic Tìm đường với GraphHopper ---
+  const handleGetDirection = async (targetDevice) => {
+    if (!userLocation) {
+        if (navigator.geolocation) {
+             navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    const currentPos = [pos.coords.latitude, pos.coords.longitude];
+                    setUserLocation(currentPos);
+                    fetchRoute(currentPos, [targetDevice.location.lat, targetDevice.location.lng]);
+                },
+                (err) => {
+                    toast.error("Vui lòng bật định vị trình duyệt để tìm đường!");
+                }
+            );
+        } else {
+            toast.error("Trình duyệt không hỗ trợ định vị!");
+        }
+        return;
+    }
+    
+    fetchRoute(userLocation, [targetDevice.location.lat, targetDevice.location.lng]);
+  };
+
+  const fetchRoute = async (start, end) => {
+      const apiKey = process.env.REACT_APP_GRAPHHOPPER_API_KEY;
+      if (!apiKey) {
+          toast.error("Chưa cấu hình API Key GraphHopper!");
+          return;
+      }
+
+      const url = `https://graphhopper.com/api/1/route?point=${start[0]},${start[1]}&point=${end[0]},${end[1]}&vehicle=foot&locale=vi&key=${apiKey}&points_encoded=false`;
+
+      try {
+          toast.info("Đang tìm đường...");
+          const res = await axios.get(url);
+          
+          if (res.data && res.data.paths && res.data.paths.length > 0) {
+              const points = res.data.paths[0].points.coordinates;
+              const leafletPoints = points.map(p => [p[1], p[0]]);
+              
+              setRoutePath(leafletPoints);
+              setMapCenter(start);
+              setMapZoom(14);
+              toast.success("Đã tìm thấy đường đi!");
+          } else {
+              toast.warning("Không tìm thấy đường đi!");
+          }
+      } catch (error) {
+          console.error("Routing error:", error);
+          toast.error("Lỗi khi tìm đường!");
+      }
+  };
 
   const filteredDevices = devices.filter((device) => {
     const matchesSearch =
@@ -128,12 +163,6 @@ const SmartCaneDashboard = () => {
       filterStatus === "all" || device.status === filterStatus;
     return matchesSearch && matchesStatus;
   });
-
-  const getMarkerIcon = (device) => {
-    if (device.sos) return "http://maps.google.com/mapfiles/ms/icons/red-dot.png";
-    if (device.geofence === "OUTSIDE") return "http://maps.google.com/mapfiles/ms/icons/orange-dot.png";
-    return "http://maps.google.com/mapfiles/ms/icons/green-dot.png";
-  };
 
   const handleAddDevice = () => {
     setShowAddModal(true);
@@ -153,7 +182,8 @@ const SmartCaneDashboard = () => {
   };
 
   const handleDeleteSuccess = () => {
-    setSelectedDevice(null); // Clear selected device khi xóa
+    setSelectedDevice(null);
+    setRoutePath([]);
     fetchDevices();
   };
 
@@ -183,7 +213,7 @@ const SmartCaneDashboard = () => {
           loading={loading}
         />
 
-        <main className="flex-1 relative">
+        <main className="flex-1 relative z-0">
           {loading ? (
             <div className="w-full h-full flex items-center justify-center text-gray-500">
               <div className="text-center">
@@ -193,24 +223,21 @@ const SmartCaneDashboard = () => {
             </div>
           ) : (
             <MapContent 
-              isLoaded={isLoaded}
-              mapContainerStyle={mapContainerStyle}
               mapCenter={mapCenter}
               mapZoom={mapZoom}
-              mapOptions={mapOptions}
-              handleMapClick={handleMapClick}
               devices={filteredDevices}
-              getMarkerIcon={getMarkerIcon}
               handleDeviceClick={handleDeviceClick}
               showGeofence={showGeofence}
               selectedDevice={selectedDevice}
               setSelectedDevice={setSelectedDevice}
+              routePath={routePath}
+              onGetDirection={handleGetDirection}
+              userLocation={userLocation}
             />
           )}
         </main>
       </div>
 
-      {/* Modals */}
       <AddDeviceModal 
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}

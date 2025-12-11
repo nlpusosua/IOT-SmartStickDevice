@@ -189,11 +189,18 @@ public class DeviceServiceImpl implements DeviceService {
     }
 
     // ==================== HELPER METHODS ====================
-
     private DeviceResponseDTO convertToResponseDTO(Device device) {
-        // Kiểm tra null owner để tránh lỗi NullPointerException
         Integer ownerId = (device.getOwner() != null) ? device.getOwner().getId() : null;
         String ownerName = (device.getOwner() != null) ? device.getOwner().getFullName() : "Chưa kích hoạt";
+
+        // --- XÂY DỰNG LOCATION TỪ CACHE (MỚI) ---
+        DeviceResponseDTO.LocationDTO location = null;
+        if (device.getLastLatitude() != null && device.getLastLongitude() != null) {
+            location = DeviceResponseDTO.LocationDTO.builder()
+                    .lat(device.getLastLatitude())
+                    .lng(device.getLastLongitude())
+                    .build();
+        }
 
         return DeviceResponseDTO.builder()
                 .id(device.getId())
@@ -204,6 +211,9 @@ public class DeviceServiceImpl implements DeviceService {
                 .lastUpdate(device.getLastUpdate())
                 .ownerId(ownerId)
                 .ownerName(ownerName)
+                .location(location) // THÊM LOCATION
+                .sos(false) // TODO: Lấy từ bảng Alert
+                .geofence("INSIDE") // TODO: Tính toán từ Geofence
                 .build();
     }
 }
