@@ -45,7 +45,7 @@ public class AdminDeviceController {
      */
     @PutMapping("/{id}")
     public ResponseEntity<DeviceResponseDTO> updateDevice(
-            @PathVariable Integer id,
+            @PathVariable Long id,
             @Valid @RequestBody AdminDeviceRequestDTO request) {
         return ResponseEntity.ok(deviceService.adminUpdateDevice(id, request));
     }
@@ -54,7 +54,7 @@ public class AdminDeviceController {
      * Admin xóa thiết bị (Xóa khỏi kho - vĩnh viễn)
      */
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteDevice(@PathVariable Integer id) {
+    public ResponseEntity<Void> deleteDevice(@PathVariable Long id) {
         deviceService.adminDeleteDevice(id);
         return ResponseEntity.noContent().build();
     }

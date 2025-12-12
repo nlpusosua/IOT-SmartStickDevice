@@ -3,10 +3,12 @@ package com.example.IOT_SmartStick.controller;
 import com.example.IOT_SmartStick.dto.DeviceUpdateDTO;
 import com.example.IOT_SmartStick.dto.request.ClaimDeviceRequest;
 import com.example.IOT_SmartStick.dto.response.DeviceResponseDTO;
+import com.example.IOT_SmartStick.dto.response.LocationHistoryDTO;
 import com.example.IOT_SmartStick.dto.sendSignal.IngestLocationRequest;
 import com.example.IOT_SmartStick.exception.ResourceNotFoundException;
 import com.example.IOT_SmartStick.service.DeviceService;
 import com.example.IOT_SmartStick.service.IngestService;
+import com.example.IOT_SmartStick.service.LocationHistoryService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,7 +24,7 @@ import java.util.List;
 @CrossOrigin(origins = "http://localhost:3000")
 public class DeviceController {
     private final DeviceService deviceService;
-
+    private final LocationHistoryService locationHistoryService;
     @Autowired
     private IngestService ingestService;
 
@@ -83,7 +85,7 @@ public class DeviceController {
      */
     @PutMapping("/{id}")
     public ResponseEntity<?> updateMyDevice(
-            @PathVariable Integer id,
+            @PathVariable Long id,
             @RequestBody DeviceUpdateDTO updateDTO,
             @RequestHeader("Authorization") String authHeader) {
         try {
@@ -102,7 +104,7 @@ public class DeviceController {
      */
     @DeleteMapping("/{id}")
     public ResponseEntity<?> removeDevice(
-            @PathVariable Integer id,
+            @PathVariable Long id,
             @RequestHeader("Authorization") String authHeader) {
         try {
             String token = authHeader.substring(7);
@@ -119,8 +121,35 @@ public class DeviceController {
      * Lấy thông tin chi tiết 1 device
      */
     @GetMapping("/{id}")
-    public ResponseEntity<DeviceResponseDTO> getDeviceById(@PathVariable Integer id) {
+    public ResponseEntity<DeviceResponseDTO> getDeviceById(@PathVariable Long id) {
         DeviceResponseDTO response = deviceService.getDeviceById(id);
         return ResponseEntity.ok(response);
+    }
+    // lấy ra thông tin di chuyển
+    @GetMapping("/{id}/history")
+    public ResponseEntity<?> getDeviceHistory(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "24") int hours,
+            @RequestHeader("Authorization") String authHeader) {
+        try {
+            // Cắt chữ "Bearer " đi để lấy token
+            String token = authHeader.startsWith("Bearer ") ? authHeader.substring(7) : authHeader;
+
+            // Gọi sang LocationHistoryServiceImpl của anh
+            LocationHistoryDTO history = locationHistoryService.getDeviceRecentHistory(id, hours, token);
+
+            return ResponseEntity.ok(history);
+
+        } catch (SecurityException e) {
+            // Service ném SecurityException -> Trả về 403 Forbidden
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
+        } catch (ResourceNotFoundException e) {
+            // Không tìm thấy device hoặc user -> Trả về 404
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        } catch (Exception e) {
+            // Lỗi khác -> 500
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Lỗi server: " + e.getMessage());
+        }
     }
 }

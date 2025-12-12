@@ -1,5 +1,6 @@
+// components/common/Sidebar.jsx
 import React from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, History } from 'lucide-react';
 import DeviceFilter from '../device/DeviceFilter';
 import DeviceList from '../device/DeviceList';
 
@@ -17,6 +18,7 @@ const Sidebar = ({
   onAddDevice,
   onEditDevice,
   onDeleteSuccess,
+  onShowHistory, // MỚI
   loading
 }) => {
   return (
@@ -58,6 +60,7 @@ const Sidebar = ({
           onDeviceClick={onDeviceClick}
           onEdit={onEditDevice}
           onDeleteSuccess={onDeleteSuccess}
+          onShowHistory={onShowHistory} // THÊM PROP MỚI
         />
       )}
 
