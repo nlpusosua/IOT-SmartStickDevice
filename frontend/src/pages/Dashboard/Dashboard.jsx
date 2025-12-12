@@ -1,30 +1,17 @@
-// pages/Dashboard/Dashboard.jsx
-import React, { useState, useCallback, useEffect } from "react";
-import { getMyDevices } from "../../service/deviceService";
+import React, { useState, useEffect } from "react";
+import { getMyDevices, getDeviceHistory } from "../../service/deviceService";
 import { toast } from 'react-toastify';
-import axios from 'axios';
 
 import Header from "../../components/common/Header";
 import Sidebar from "../../components/common/Sidebar";
 import MapContent from "../../components/map/MapContent";
 import AddDeviceModal from "../../components/device/AddDeviceModal";
 import EditDeviceModal from "../../components/device/EditDeviceModal";
+import HistoryPanel from "../../components/device/HistoryPanel";
 
 const mockNotifications = [
-  {
-    id: 1,
-    type: "sos",
-    message: "Cảnh báo SOS từ Ông Lê Văn C",
-    time: "5 phút trước",
-    read: false,
-  },
-  {
-    id: 2,
-    type: "geofence",
-    message: "Ông Lê Văn C đã rời khỏi vùng an toàn",
-    time: "15 phút trước",
-    read: false,
-  },
+  { id: 1, type: "sos", message: "Cảnh báo SOS từ Ông Lê Văn C", time: "5 phút trước", read: false },
+  { id: 2, type: "geofence", message: "Ông Lê Văn C đã rời khỏi vùng an toàn", time: "15 phút trước", read: false },
 ];
 
 const SmartCaneDashboard = () => {
@@ -45,12 +32,17 @@ const SmartCaneDashboard = () => {
   const [userLocation, setUserLocation] = useState(null);
   const [routePath, setRoutePath] = useState([]);
 
+  // History State (MỚI)
+  const [historyMode, setHistoryMode] = useState(false);
+  const [historyDevice, setHistoryDevice] = useState(null);
+  const [historyPath, setHistoryPath] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
   // Modal states
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [deviceToEdit, setDeviceToEdit] = useState(null);
 
-  // Lấy danh sách devices từ API
   const fetchDevices = async () => {
     setLoading(true);
     try {
@@ -69,7 +61,7 @@ const SmartCaneDashboard = () => {
     } catch (error) {
       console.error('Error fetching devices:', error);
       if (error.response?.status === 401) {
-        toast.error('Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại!');
+        toast.error('Phiên đăng nhập hết hạn!');
       } else {
         toast.error('Không thể tải danh sách thiết bị!');
       }
@@ -81,15 +73,12 @@ const SmartCaneDashboard = () => {
   useEffect(() => {
     fetchDevices();
     
-    // Lấy vị trí hiện tại của User
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           setUserLocation([position.coords.latitude, position.coords.longitude]);
         },
-        () => {
-          console.warn("Không thể lấy vị trí người dùng");
-        }
+        () => console.warn("Không thể lấy vị trí người dùng")
       );
     }
   }, []);
@@ -102,7 +91,6 @@ const SmartCaneDashboard = () => {
     }
   };
 
-  // --- Logic Tìm đường với GraphHopper ---
   const handleGetDirection = async (targetDevice) => {
     if (!userLocation) {
         if (navigator.geolocation) {
@@ -112,9 +100,7 @@ const SmartCaneDashboard = () => {
                     setUserLocation(currentPos);
                     fetchRoute(currentPos, [targetDevice.location.lat, targetDevice.location.lng]);
                 },
-                (err) => {
-                    toast.error("Vui lòng bật định vị trình duyệt để tìm đường!");
-                }
+                (err) => toast.error("Vui lòng bật định vị trình duyệt!")
             );
         } else {
             toast.error("Trình duyệt không hỗ trợ định vị!");
@@ -136,10 +122,11 @@ const SmartCaneDashboard = () => {
 
       try {
           toast.info("Đang tìm đường...");
-          const res = await axios.get(url);
+          const response = await fetch(url);
+          const data = await response.json();
           
-          if (res.data && res.data.paths && res.data.paths.length > 0) {
-              const points = res.data.paths[0].points.coordinates;
+          if (data?.paths?.length > 0) {
+              const points = data.paths[0].points.coordinates;
               const leafletPoints = points.map(p => [p[1], p[0]]);
               
               setRoutePath(leafletPoints);
@@ -155,6 +142,44 @@ const SmartCaneDashboard = () => {
       }
   };
 
+  // --- XỬ LÝ LỊCH SỬ (MỚI) ---
+  const handleShowHistory = (device) => {
+    setHistoryDevice(device);
+    setHistoryMode(true);
+    setRoutePath([]);
+  };
+
+  const handleLoadHistory = async (deviceId, hours) => {
+    setLoadingHistory(true);
+    try {
+      const response = await getDeviceHistory(deviceId, hours);
+      
+      if (response.path && response.path.length > 0) {
+        const pathPoints = response.path.map(point => [point.lat, point.lng]);
+        setHistoryPath(pathPoints);
+        
+        setMapCenter([response.path[0].lat, response.path[0].lng]);
+        setMapZoom(14);
+        
+        toast.success(`Đã tải ${response.totalPoints} điểm lịch sử`);
+      } else {
+        toast.warning("Không có dữ liệu lịch sử");
+        setHistoryPath([]);
+      }
+    } catch (error) {
+      console.error("History error:", error);
+      toast.error("Không thể tải lịch sử di chuyển");
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  const handleCloseHistory = () => {
+    setHistoryMode(false);
+    setHistoryDevice(null);
+    setHistoryPath([]);
+  };
+
   const filteredDevices = devices.filter((device) => {
     const matchesSearch =
       device.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -164,29 +189,6 @@ const SmartCaneDashboard = () => {
     return matchesSearch && matchesStatus;
   });
 
-  const handleAddDevice = () => {
-    setShowAddModal(true);
-  };
-
-  const handleEditDevice = (device) => {
-    setDeviceToEdit(device);
-    setShowEditModal(true);
-  };
-
-  const handleAddSuccess = () => {
-    fetchDevices();
-  };
-
-  const handleEditSuccess = () => {
-    fetchDevices();
-  };
-
-  const handleDeleteSuccess = () => {
-    setSelectedDevice(null);
-    setRoutePath([]);
-    fetchDevices();
-  };
-
   return (
     <div className="flex flex-col h-screen bg-gray-50 font-sans">
       <Header 
@@ -195,7 +197,7 @@ const SmartCaneDashboard = () => {
         notifications={notifications}
       />
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden relative">
         <Sidebar 
           isOpen={sidebarOpen}
           devices={filteredDevices}
@@ -207,9 +209,17 @@ const SmartCaneDashboard = () => {
           setFilterStatus={setFilterStatus}
           showGeofence={showGeofence}
           setShowGeofence={setShowGeofence}
-          onAddDevice={handleAddDevice}
-          onEditDevice={handleEditDevice}
-          onDeleteSuccess={handleDeleteSuccess}
+          onAddDevice={() => setShowAddModal(true)}
+          onEditDevice={(device) => {
+            setDeviceToEdit(device);
+            setShowEditModal(true);
+          }}
+          onDeleteSuccess={() => {
+            setSelectedDevice(null);
+            setRoutePath([]);
+            fetchDevices();
+          }}
+          onShowHistory={handleShowHistory}
           loading={loading}
         />
 
@@ -230,25 +240,35 @@ const SmartCaneDashboard = () => {
               showGeofence={showGeofence}
               selectedDevice={selectedDevice}
               setSelectedDevice={setSelectedDevice}
-              routePath={routePath}
+              routePath={historyMode ? historyPath : routePath}
               onGetDirection={handleGetDirection}
               userLocation={userLocation}
+              historyMode={historyMode}
             />
           )}
         </main>
+
+        {historyMode && historyDevice && (
+          <HistoryPanel
+            device={historyDevice}
+            onClose={handleCloseHistory}
+            onLoadHistory={handleLoadHistory}
+            isLoading={loadingHistory}
+          />
+        )}
       </div>
 
       <AddDeviceModal 
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
-        onSuccess={handleAddSuccess}
+        onSuccess={fetchDevices}
       />
 
       <EditDeviceModal 
         isOpen={showEditModal}
         onClose={() => setShowEditModal(false)}
         device={deviceToEdit}
-        onSuccess={handleEditSuccess}
+        onSuccess={fetchDevices}
       />
     </div>
   );

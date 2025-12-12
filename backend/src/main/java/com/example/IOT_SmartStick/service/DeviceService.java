@@ -17,10 +17,10 @@ public interface DeviceService {
     List<DeviceResponseDTO> getMyDevices(String token);
 
     // User cập nhật tên device của mình
-    DeviceResponseDTO updateMyDevice(Integer id, DeviceUpdateDTO updateDTO, String token);
+    DeviceResponseDTO updateMyDevice(Long id, DeviceUpdateDTO updateDTO, String token);
 
     // User xóa device khỏi tài khoản (set owner = null)
-    void removeDeviceFromAccount(Integer id, String token);
+    void removeDeviceFromAccount(Long id, String token);
 
     // ========== ADMIN ENDPOINTS ==========
 
@@ -31,11 +31,15 @@ public interface DeviceService {
     List<DeviceResponseDTO> adminGetAllDevices();
 
     // Admin cập nhật device (token, name)
-    DeviceResponseDTO adminUpdateDevice(Integer id, AdminDeviceRequestDTO request);
+    DeviceResponseDTO adminUpdateDevice(Long id, AdminDeviceRequestDTO request);
 
     // Admin xóa vĩnh viễn device khỏi DB
-    void adminDeleteDevice(Integer id);
+    void adminDeleteDevice(Long id);
 
     // ========== COMMON ==========
-    DeviceResponseDTO getDeviceById(Integer id);
+    DeviceResponseDTO getDeviceById(Long id);
+
+
+
+
 }

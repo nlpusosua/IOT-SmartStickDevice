@@ -10,6 +10,7 @@ import com.example.IOT_SmartStick.entity.User;
 import com.example.IOT_SmartStick.exception.DuplicateResourceException;
 import com.example.IOT_SmartStick.exception.ResourceNotFoundException;
 import com.example.IOT_SmartStick.repository.DeviceRepository;
+import com.example.IOT_SmartStick.repository.LocationRepository;
 import com.example.IOT_SmartStick.repository.UserRepository;
 import com.example.IOT_SmartStick.service.DeviceService;
 import com.example.IOT_SmartStick.service.JwtService;
@@ -17,6 +18,7 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -26,6 +28,7 @@ public class DeviceServiceImpl implements DeviceService {
     private final DeviceRepository deviceRepository;
     private final UserRepository userRepository;
     private final JwtService jwtService;
+    private final LocationRepository locationRepository;
 
     // ==================== USER METHODS ====================
 
@@ -68,7 +71,7 @@ public class DeviceServiceImpl implements DeviceService {
 
     @Override
     @Transactional
-    public DeviceResponseDTO updateMyDevice(Integer id, DeviceUpdateDTO updateDTO, String token) {
+    public DeviceResponseDTO updateMyDevice(Long id, DeviceUpdateDTO updateDTO, String token) {
         // Lấy thông tin user
         String email = jwtService.extractUsername(token);
         User user = userRepository.findByEmail(email)
@@ -94,7 +97,7 @@ public class DeviceServiceImpl implements DeviceService {
 
     @Override
     @Transactional
-    public void removeDeviceFromAccount(Integer id, String token) {
+    public void removeDeviceFromAccount(Long id, String token) {
         // Lấy thông tin user
         String email = jwtService.extractUsername(token);
         User user = userRepository.findByEmail(email)
@@ -148,7 +151,7 @@ public class DeviceServiceImpl implements DeviceService {
 
     @Override
     @Transactional
-    public DeviceResponseDTO adminUpdateDevice(Integer id, AdminDeviceRequestDTO request) {
+    public DeviceResponseDTO adminUpdateDevice(Long id, AdminDeviceRequestDTO request) {
         Device device = deviceRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Device not found with id: " + id));
 
@@ -171,7 +174,7 @@ public class DeviceServiceImpl implements DeviceService {
 
     @Override
     @Transactional
-    public void adminDeleteDevice(Integer id) {
+    public void adminDeleteDevice(Long id) {
         if (!deviceRepository.existsById(id)) {
             throw new ResourceNotFoundException("Device not found with id: " + id);
         }
@@ -182,11 +185,12 @@ public class DeviceServiceImpl implements DeviceService {
     // ==================== COMMON METHODS ====================
 
     @Override
-    public DeviceResponseDTO getDeviceById(Integer id) {
+    public DeviceResponseDTO getDeviceById(Long id) {
         Device device = deviceRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Device not found with id: " + id));
         return convertToResponseDTO(device);
     }
+
 
     // ==================== HELPER METHODS ====================
     private DeviceResponseDTO convertToResponseDTO(Device device) {
