@@ -8,6 +8,5 @@ import java.math.BigDecimal;
 public class GpsData {
     private BigDecimal latitude;
     private BigDecimal longitude;
-    private Double altitude;
     private Double speed;
 }

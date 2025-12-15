@@ -7,8 +7,8 @@ import lombok.Data;
 @Data
 public class IngestLocationRequest {
 
-    @JsonProperty("deviceId") // Khớp chính xác với key trong JSON
-    private String deviceId; // "SMARTCANE-0001"
+    @JsonProperty("deviceToken") // Khớp chính xác với key trong JSON
+    private String deviceToken; // "IOT-STICK-1001"
 
     @JsonProperty("timestamp")
     private String timestamp; // "2025-10-05T21:32:15Z"

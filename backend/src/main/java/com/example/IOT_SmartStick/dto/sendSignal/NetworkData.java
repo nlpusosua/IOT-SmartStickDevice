@@ -12,9 +12,6 @@ public class NetworkData {
     @JsonProperty("signalStrength")
     private Integer signalStrength; // -67 [cite: 192]
 
-    @JsonProperty("gsmImei")
-    private String gsmImei; // "864234050112345" [cite: 193]
-
     @JsonProperty("gprsConnected")
     private Boolean gprsConnected; // false [cite: 194]
 }

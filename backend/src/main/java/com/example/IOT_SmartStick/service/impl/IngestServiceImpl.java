@@ -13,9 +13,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
+
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 
 @Service
@@ -85,17 +84,12 @@ public class IngestServiceImpl implements IngestService {
         // 6. Xử lý SOS và Geofence (nếu cần)
         if (payload.getStatus() != null) {
             boolean isSOS = Boolean.TRUE.equals(payload.getStatus().getSos());
-            String geofenceStatus = payload.getStatus().getGeofence();
 
             if (isSOS) {
                 log.warn("🚨 SOS ALERT from device: {}", device.getName());
                 // TODO: Gửi thông báo khẩn cấp
             }
 
-            if ("OUTSIDE".equals(geofenceStatus)) {
-                log.warn("⚠️ Geofence breach for device: {}", device.getName());
-                // TODO: Gửi cảnh báo vùng an toàn
-            }
         }
     }
 }
