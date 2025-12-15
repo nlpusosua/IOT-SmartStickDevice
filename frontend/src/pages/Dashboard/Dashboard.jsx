@@ -32,7 +32,7 @@ const SmartCaneDashboard = () => {
   const [userLocation, setUserLocation] = useState(null);
   const [routePath, setRoutePath] = useState([]);
 
-  // History State (MỚI)
+  // History State
   const [historyMode, setHistoryMode] = useState(false);
   const [historyDevice, setHistoryDevice] = useState(null);
   const [historyPath, setHistoryPath] = useState([]);
@@ -43,8 +43,11 @@ const SmartCaneDashboard = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [deviceToEdit, setDeviceToEdit] = useState(null);
 
-  const fetchDevices = async () => {
-    setLoading(true);
+  // --- 1. SỬA HÀM FETCH ĐỂ HỖ TRỢ CHẠY NGẦM ---
+  const fetchDevices = async (isBackground = false) => {
+    // Chỉ hiện loading xoay vòng nếu KHÔNG PHẢI là chạy ngầm
+    if (!isBackground) setLoading(true);
+
     try {
       const response = await getMyDevices();
       const devicesData = response.map((device, index)=> ({
@@ -60,19 +63,29 @@ const SmartCaneDashboard = () => {
       setDevices(devicesData);
     } catch (error) {
       console.error('Error fetching devices:', error);
-      if (error.response?.status === 401) {
-        toast.error('Phiên đăng nhập hết hạn!');
-      } else {
-        toast.error('Không thể tải danh sách thiết bị!');
+      // Chỉ hiện Toast lỗi nếu người dùng thao tác trực tiếp (tránh spam lỗi khi chạy ngầm)
+      if (!isBackground) {
+          if (error.response?.status === 401) {
+            toast.error('Phiên đăng nhập hết hạn!');
+          } else {
+            toast.error('Không thể tải danh sách thiết bị!');
+          }
       }
     } finally {
-      setLoading(false);
+      if (!isBackground) setLoading(false);
     }
   };
 
+  // --- 2. CÀI ĐẶT TỰ ĐỘNG CẬP NHẬT (POLLING) ---
   useEffect(() => {
-    fetchDevices();
+    // Gọi lần đầu khi vào trang (có loading)
+    fetchDevices(false);
     
+    // Cài đặt hẹn giờ: Gọi ngầm mỗi 3 giây (không loading)
+    const intervalId = setInterval(() => {
+        fetchDevices(true); 
+    }, 3000);
+
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -81,6 +94,9 @@ const SmartCaneDashboard = () => {
         () => console.warn("Không thể lấy vị trí người dùng")
       );
     }
+
+    // Dọn dẹp khi thoát trang
+    return () => clearInterval(intervalId);
   }, []);
 
   const handleDeviceClick = (device) => {
@@ -142,7 +158,7 @@ const SmartCaneDashboard = () => {
       }
   };
 
-  // --- XỬ LÝ LỊCH SỬ (MỚI) ---
+  // --- XỬ LÝ LỊCH SỬ ---
   const handleShowHistory = (device) => {
     setHistoryDevice(device);
     setHistoryMode(true);
@@ -189,6 +205,11 @@ const SmartCaneDashboard = () => {
     return matchesSearch && matchesStatus;
   });
 
+  // Khi thêm/sửa/xóa xong, gọi fetchDevices(false) để reload ngay lập tức
+  const handleRefreshData = () => {
+    fetchDevices(false);
+  };
+
   return (
     <div className="flex flex-col h-screen bg-gray-50 font-sans">
       <Header 
@@ -217,7 +238,7 @@ const SmartCaneDashboard = () => {
           onDeleteSuccess={() => {
             setSelectedDevice(null);
             setRoutePath([]);
-            fetchDevices();
+            handleRefreshData();
           }}
           onShowHistory={handleShowHistory}
           loading={loading}
@@ -261,14 +282,14 @@ const SmartCaneDashboard = () => {
       <AddDeviceModal 
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
-        onSuccess={fetchDevices}
+        onSuccess={handleRefreshData}
       />
 
       <EditDeviceModal 
         isOpen={showEditModal}
         onClose={() => setShowEditModal(false)}
         device={deviceToEdit}
-        onSuccess={fetchDevices}
+        onSuccess={handleRefreshData}
       />
     </div>
   );

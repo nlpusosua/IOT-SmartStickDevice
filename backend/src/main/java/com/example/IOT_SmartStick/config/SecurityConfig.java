@@ -32,27 +32,34 @@ public class SecurityConfig {
     private final JwtAuthFilter jwtAuthFilter;
     private final UserDetailsService userDetailsService;
 
+    // File: com/example/IOT_SmartStick/config/SecurityConfig.java
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                // Trong SecurityFilterChain
                 .authorizeHttpRequests(auth -> auth
-                        // Cho phép tất cả các endpoint auth (bao gồm refresh-token)
+                        // 1. Cho phép API Auth (Đăng nhập/Đăng ký)
                         .requestMatchers("/api/v1/auth/**").permitAll()
 
-                        // Device endpoints cho user (cần authenticated)
+                        // 2. QUAN TRỌNG: Mở cửa riêng cho API gửi vị trí của thiết bị (Phải đặt TRƯỚC dòng /api/device/**)
+                        .requestMatchers("/api/device/location").permitAll()
+
+                        // 3. Các API khác của device (Claim, History...) thì vẫn bắt buộc đăng nhập
                         .requestMatchers("/api/device/**").authenticated()
 
-                        // QUAN TRỌNG: Admin endpoints yêu cầu quyền ADMIN
+                        // 4. API Admin
                         .requestMatchers("/api/admin/**").hasAuthority("ADMIN")
 
+                        // 5. Còn lại bắt buộc đăng nhập hết
                         .anyRequest().authenticated()
                 )
+                // ... giữ nguyên phần còn lại (sessionManagement, authenticationProvider...)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+
         return http.build();
     }
 

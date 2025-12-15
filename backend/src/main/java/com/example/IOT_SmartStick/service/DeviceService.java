@@ -40,6 +40,4 @@ public interface DeviceService {
     DeviceResponseDTO getDeviceById(Long id);
 
 
-
-
 }
