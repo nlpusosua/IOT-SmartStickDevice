@@ -1,10 +1,10 @@
 import Swal from "sweetalert2";
 import React, { useState } from "react";
-import { Clock, AlertCircle, Edit2, Trash2,History } from "lucide-react";
+import { Clock, AlertCircle, Edit2, Trash2, History } from "lucide-react";
 import { removeDevice } from "../../service/deviceService";
 import { toast } from "react-toastify";
 import { deleteDevice } from "../../service/deviceService";
- 
+import { Circle } from "lucide-react";
 
 const DeviceList = ({
   devices,
@@ -13,6 +13,7 @@ const DeviceList = ({
   onEdit,
   onDeleteSuccess,
   onShowHistory,
+  onManageGeofence,
 }) => {
   const [deletingId, setDeletingId] = useState(null);
 
@@ -83,7 +84,7 @@ const DeviceList = ({
     return `${Math.floor(diff / 86400)} ngày trước`;
   };
 
-return (
+  return (
     <div className="flex-1 overflow-y-auto p-3">
       {devices.length === 0 ? (
         <div className="text-center py-8 text-gray-500">
@@ -155,15 +156,24 @@ return (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  // Kiểm tra xem onShowHistory có tồn tại không trước khi gọi để tránh lỗi nếu quên truyền
-                  if (onShowHistory) onShowHistory(device); 
+                  if (onShowHistory) onShowHistory(device);
                 }}
                 className="flex-1 flex items-center justify-center gap-2 px-2 py-2 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 transition-colors text-sm font-medium"
               >
                 <History size={16} />
                 Lịch sử
               </button>
-              
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onManageGeofence) onManageGeofence(device);
+                }}
+                className="flex-1 flex items-center justify-center gap-2 px-2 py-2 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 transition-colors text-sm font-medium"
+              >
+                <Circle size={16} />
+                Safe Zone
+              </button>
+
               <button
                 onClick={(e) => handleEdit(e, device)}
                 className="flex-1 flex items-center justify-center gap-2 px-2 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium"
@@ -171,7 +181,7 @@ return (
                 <Edit2 size={16} />
                 Sửa
               </button>
-              
+
               <button
                 onClick={(e) => handleRemove(e, device)}
                 disabled={deletingId === device.id}
@@ -181,7 +191,6 @@ return (
                 {deletingId === device.id ? "Đang xóa..." : "Xóa"}
               </button>
             </div>
-
           </div>
         ))
       )}
