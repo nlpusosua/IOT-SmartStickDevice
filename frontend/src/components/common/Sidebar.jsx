@@ -18,7 +18,8 @@ const Sidebar = ({
   onAddDevice,
   onEditDevice,
   onDeleteSuccess,
-  onShowHistory, // MỚI
+  onShowHistory, 
+  onManageGeofence,
   loading
 }) => {
   return (
@@ -60,7 +61,8 @@ const Sidebar = ({
           onDeviceClick={onDeviceClick}
           onEdit={onEditDevice}
           onDeleteSuccess={onDeleteSuccess}
-          onShowHistory={onShowHistory} // THÊM PROP MỚI
+          onShowHistory={onShowHistory}
+          onManageGeofence={onManageGeofence} 
         />
       )}
 

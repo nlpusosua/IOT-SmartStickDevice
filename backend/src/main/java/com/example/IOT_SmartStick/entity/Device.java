@@ -59,9 +59,17 @@ public class Device {
     @ToString.Exclude // Quan trọng: Tránh load toàn bộ list history khi log Device
     private List<Location> locations;
 
+    // Thêm vào Device.java
     @OneToMany(mappedBy = "device", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
     private List<Geofence> geofences;
+
+    // Cache trạng thái geofence
+    @Column(length = 20)
+    @Builder.Default
+    private String geofenceStatus = "INSIDE"; // "INSIDE", "OUTSIDE", "NO_GEOFENCE"
+
+    private Long lastViolatedGeofenceId; // ID của geofence bị vi phạm gần nhất
 
     @OneToMany(mappedBy = "device", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude

@@ -49,6 +49,8 @@ public class SecurityConfig {
                         // 3. Các API khác của device (Claim, History...) thì vẫn bắt buộc đăng nhập
                         .requestMatchers("/api/device/**").authenticated()
 
+                        .requestMatchers("/api/geofence/**").authenticated()
+
                         // 4. API Admin
                         .requestMatchers("/api/admin/**").hasAuthority("ADMIN")
 
@@ -88,7 +90,7 @@ public class SecurityConfig {
         configuration.setAllowedOrigins(Arrays.asList("http://localhost:3000"));
 
         // Cho phép tất cả các method (GET, POST, PUT, DELETE, OPTIONS,...)
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
 
         // Quan trọng: Cho phép các Header (như Authorization, Content-Type)
         configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "x-auth-token"));
