@@ -1,4 +1,3 @@
-// repository/LocationRepository.java
 package com.example.IOT_SmartStick.repository;
 
 import com.example.IOT_SmartStick.entity.Location;
@@ -11,7 +10,7 @@ import java.util.List;
 
 public interface LocationRepository extends JpaRepository<Location, Long> {
 
-    // DÙNG NATIVE QUERY - FIX VẤN ĐỀ
+
     @Query(value = "SELECT * FROM locations " +
             "WHERE device_id = :deviceId " +
             "AND timestamp BETWEEN :startTime AND :endTime " +
@@ -23,7 +22,7 @@ public interface LocationRepository extends JpaRepository<Location, Long> {
             @Param("endTime") LocalDateTime endTime
     );
 
-    // Lấy N điểm cuối cùng
+
     @Query(value = "SELECT * FROM locations WHERE device_id = :deviceId " +
             "ORDER BY timestamp DESC LIMIT :limit",
             nativeQuery = true)
