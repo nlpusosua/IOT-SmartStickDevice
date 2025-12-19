@@ -51,6 +51,9 @@ public class SecurityConfig {
 
                         .requestMatchers("/api/geofence/**").authenticated()
 
+                        .requestMatchers("/api/alerts/**").authenticated()
+
+                        .requestMatchers("/ws/**").permitAll()
                         // 4. API Admin
                         .requestMatchers("/api/admin/**").hasAuthority("ADMIN")
 

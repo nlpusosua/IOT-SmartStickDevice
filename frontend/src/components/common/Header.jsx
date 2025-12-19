@@ -5,47 +5,58 @@ import NotificationPanel from '../notification/NotificationPanel';
 import { logoutAPI } from '../../service/authService';
 import { toast } from 'react-toastify';
 
-const Header = ({ sidebarOpen, setSidebarOpen, notifications }) => {
+const Header = ({ 
+  sidebarOpen, 
+  setSidebarOpen, 
+  notifications, 
+  onRefreshNotifications,
+  onNotificationClick,
+  onHeaderInteraction // <-- PROP MỚI
+}) => {
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const navigate = useNavigate();
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const unreadCount = notifications.filter((n) => !n.isRead).length;
 
-  /**
-   * Xử lý đăng xuất
-   * - Gọi API logout để blacklist access token
-   * - Xóa token khỏi localStorage
-   * - Redirect về trang login
-   */
+  // Xử lý click chuông
+  const toggleNotification = () => {
+    if (!notificationOpen) {
+        // Nếu sắp mở -> gọi hàm cha để tắt panel dưới
+        if (onHeaderInteraction) onHeaderInteraction();
+        // Tắt menu user nếu đang mở
+        setUserMenuOpen(false);
+    }
+    setNotificationOpen(!notificationOpen);
+  };
+
+  // Xử lý click User
+  const toggleUserMenu = () => {
+    if (!userMenuOpen) {
+        // Nếu sắp mở -> gọi hàm cha để tắt panel dưới
+        if (onHeaderInteraction) onHeaderInteraction();
+        // Tắt menu notification nếu đang mở
+        setNotificationOpen(false);
+    }
+    setUserMenuOpen(!userMenuOpen);
+  };
+
   const handleLogout = async () => {
-    // Đóng menu
     setUserMenuOpen(false);
     setIsLoggingOut(true);
-
     try {
-      // Gọi API logout (sẽ blacklist token trong Redis)
       await logoutAPI();
-      
-      // Xóa token khỏi localStorage
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
       localStorage.removeItem('pendingVerificationEmail');
-      
       toast.success("Đăng xuất thành công!");
-      
-      // Redirect về trang login
       navigate('/login');
-      
     } catch (error) {
       console.error('Logout error:', error);
-      
-      // Dù có lỗi vẫn xóa token và redirect (vì token có thể đã hết hạn)
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
       localStorage.removeItem('pendingVerificationEmail');
-      
       toast.info("Đã đăng xuất khỏi thiết bị này");
       navigate('/login');
     } finally {
@@ -53,12 +64,7 @@ const Header = ({ sidebarOpen, setSidebarOpen, notifications }) => {
     }
   };
 
-  /**
-   * Lấy tên người dùng từ localStorage hoặc token
-   * (Có thể decode JWT để lấy thông tin user)
-   */
   const getUserName = () => {
-    // TODO: Decode JWT hoặc lấy từ Redux/Context
     return "Người chăm sóc";
   };
 
@@ -82,7 +88,7 @@ const Header = ({ sidebarOpen, setSidebarOpen, notifications }) => {
         
         {/* Nút chuông thông báo */}
         <button
-          onClick={() => setNotificationOpen(!notificationOpen)}
+          onClick={toggleNotification}
           className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors"
           aria-label="Notifications"
         >
@@ -97,7 +103,7 @@ const Header = ({ sidebarOpen, setSidebarOpen, notifications }) => {
         {/* User Menu Dropdown */}
         <div className="relative">
           <button
-            onClick={() => setUserMenuOpen(!userMenuOpen)}
+            onClick={toggleUserMenu}
             className="flex items-center gap-2 px-4 py-2 border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors"
             aria-label="User menu"
           >
@@ -106,15 +112,11 @@ const Header = ({ sidebarOpen, setSidebarOpen, notifications }) => {
             <ChevronDown size={16} />
           </button>
 
-          {/* Dropdown Menu */}
           {userMenuOpen && (
             <div className="absolute top-full right-0 mt-2 w-52 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden z-50">
-              
-              {/* Thông tin cá nhân */}
               <button 
                 onClick={() => {
                   setUserMenuOpen(false);
-                  // TODO: Navigate to profile page
                   toast.info("Chức năng đang phát triển");
                 }}
                 className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors text-left"
@@ -123,11 +125,9 @@ const Header = ({ sidebarOpen, setSidebarOpen, notifications }) => {
                 <span className="text-sm">Thông tin cá nhân</span>
               </button>
 
-              {/* Cài đặt */}
               <button 
                 onClick={() => {
                   setUserMenuOpen(false);
-                  // TODO: Navigate to settings page
                   toast.info("Chức năng đang phát triển");
                 }}
                 className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors text-left"
@@ -138,7 +138,6 @@ const Header = ({ sidebarOpen, setSidebarOpen, notifications }) => {
 
               <hr className="border-gray-200" />
 
-              {/* Đăng xuất */}
               <button
                 onClick={handleLogout}
                 disabled={isLoggingOut}
@@ -164,8 +163,10 @@ const Header = ({ sidebarOpen, setSidebarOpen, notifications }) => {
       {/* Notification Panel */}
       {notificationOpen && (
         <NotificationPanel 
-          notifications={notifications} 
-          onClose={() => setNotificationOpen(false)} 
+          notifications={notifications}
+          onClose={() => setNotificationOpen(false)}
+          onRefresh={onRefreshNotifications}
+          onNotificationClick={onNotificationClick}
         />
       )}
     </header>

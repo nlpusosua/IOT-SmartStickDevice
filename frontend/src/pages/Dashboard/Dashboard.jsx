@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { getMyDevices, getDeviceHistory } from "../../service/deviceService";
+import { getUnreadAlerts } from "../../service/alertService";
 import { toast } from "react-toastify";
+import SockJS from 'sockjs-client';
+import { Stomp } from '@stomp/stompjs';
 
 import Header from "../../components/common/Header";
 import Sidebar from "../../components/common/Sidebar";
@@ -10,18 +13,14 @@ import EditDeviceModal from "../../components/device/EditDeviceModal";
 import HistoryPanel from "../../components/device/HistoryPanel";
 import GeofenceModal from "../../components/device/GeofenceModal";
 import GeofencePanel from "../../components/device/GeofencePanel";
+import SOSPopup from "../../components/notification/SOSPopup";
 import { createGeofence, updateGeofence } from "../../service/geofenceService";
-
-const mockNotifications = [
-  { id: 1, type: "sos", message: "Cảnh báo SOS từ Ông Lê Văn C", time: "5 phút trước", read: false },
-  { id: 2, type: "geofence", message: "Ông Lê Văn C đã rời khỏi vùng an toàn", time: "15 phút trước", read: false },
-];
 
 const SmartCaneDashboard = () => {
   const [devices, setDevices] = useState([]);
   const [selectedDevice, setSelectedDevice] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [notifications, setNotifications] = useState(mockNotifications);
+  const [notifications, setNotifications] = useState([]);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -31,12 +30,11 @@ const SmartCaneDashboard = () => {
   const [mapZoom, setMapZoom] = useState(14);
   const [loading, setLoading] = useState(false);
 
-  // Routing State
   const [userLocation, setUserLocation] = useState(null);
   const [routePath, setRoutePath] = useState([]);
   
-  // History State
-  const [historyMode, setHistoryMode] = useState(false);
+  // PANEL STATES
+  const [activePanel, setActivePanel] = useState(null); // 'history' | 'geofence' | null
   const [historyDevice, setHistoryDevice] = useState(null);
   const [historyPath, setHistoryPath] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -48,31 +46,131 @@ const SmartCaneDashboard = () => {
 
   // Geofence states
   const [showGeofenceModal, setShowGeofenceModal] = useState(false);
-  const [showGeofencePanel, setShowGeofencePanel] = useState(false);
   const [geofenceDevice, setGeofenceDevice] = useState(null);
   const [editingGeofence, setEditingGeofence] = useState(null);
   const [loadingGeofence, setLoadingGeofence] = useState(false);
   const [pickingLocation, setPickingLocation] = useState(false);
   const [tempGeofenceData, setTempGeofenceData] = useState(null);
-
   const [geofenceUpdateTrigger, setGeofenceUpdateTrigger] = useState(0);
 
-  // --- HÀM PHỤ TRỢ: RESET STATE GEOFENCE ---
-  const resetGeofenceState = () => {
+  const [sosPopup, setSOSPopup] = useState(null);
+  const [stompClient, setStompClient] = useState(null);
+
+  // --- HÀM RESET TẤT CẢ PANEL ---
+  const resetAllPanels = () => {
+    setActivePanel(null);
+    setHistoryDevice(null);
+    setHistoryPath([]);
+    setGeofenceDevice(null);
     setEditingGeofence(null);
     setTempGeofenceData(null);
     setPickingLocation(false);
-    // Đảm bảo đóng panel luôn ở đây nếu cần, hoặc để ở logic gọi
+    setRoutePath([]);
   };
 
-  // --- HÀM PHỤ TRỢ: RESET STATE HISTORY (MỚI) ---
-  const resetHistoryState = () => {
-    setHistoryMode(false);
-    setHistoryDevice(null);
-    setHistoryPath([]);
+  // --- HÀM XỬ LÝ KHI CLICK HEADER (MỚI) ---
+  const handleHeaderInteraction = () => {
+      if (activePanel) {
+          resetAllPanels();
+      }
   };
 
-  // --- 1. HÀM FETCH DEVICES ---
+  const getUserId = () => {
+    const token = localStorage.getItem('accessToken');
+    if (!token) return null;
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return payload.userId || payload.sub;
+    } catch (e) {
+      console.error('Error decoding token:', e);
+      return null;
+    }
+  };
+
+  // WebSocket Connection
+  useEffect(() => {
+    const userId = getUserId();
+    if (!userId) {
+      console.warn('No userId found, skipping WebSocket connection');
+      return;
+    }
+
+    const socket = new SockJS('http://localhost:8080/ws');
+    const client = Stomp.over(socket);
+    
+    client.connect({}, () => {
+      console.log('✅ WebSocket connected for user:', userId);
+      
+      client.subscribe(`/topic/user/${userId}/alerts`, (message) => {
+        const alert = JSON.parse(message.body);
+        console.log('📢 New alert received:', alert);
+        
+        // Cập nhật State notification ngay lập tức
+        setNotifications(prev => [alert, ...prev]);
+        
+        if (alert.alertType === 'SOS' || alert.alertType === 'LOST') {
+          setSOSPopup(alert);
+          try {
+            const audio = new Audio('/alert-sound.mp3');
+            audio.play().catch(e => console.log('Cannot play sound:', e));
+          } catch (e) {
+            console.log('Audio not available');
+          }
+        } else {
+          toast.warning(alert.message, { autoClose: 5000 });
+        }
+      });
+    }, (error) => {
+      console.error('❌ WebSocket connection error:', error);
+    });
+    
+    setStompClient(client);
+    
+    return () => {
+      if (client && client.connected) {
+        client.disconnect();
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        const data = await getUnreadAlerts();
+        setNotifications(data);
+      } catch (error) {
+        console.error('Error fetching notifications:', error);
+      }
+    };
+    fetchNotifications();
+  }, []);
+
+  const handleRefreshNotifications = async () => {
+    try {
+      const data = await getUnreadAlerts();
+      setNotifications(data);
+    } catch (error) {
+      console.error('Error refreshing notifications:', error);
+    }
+  };
+
+  const handleNotificationClick = (notif) => {
+    resetAllPanels();
+    handleLocateAlert(notif);
+  };
+
+  const handleLocateAlert = (alert) => {
+    if (alert.latitude && alert.longitude) {
+      setMapCenter([alert.latitude, alert.longitude]);
+      setMapZoom(18);
+      
+      const device = devices.find(d => d.id === alert.deviceId);
+      if (device) {
+        setSelectedDevice(device);
+      }
+    }
+  };
+
   const fetchDevices = async (isBackground = false) => {
     if (!isBackground) setLoading(true);
     try {
@@ -102,7 +200,6 @@ const SmartCaneDashboard = () => {
     }
   };
 
-  // --- 2. POLLING ---
   useEffect(() => {
     fetchDevices(false);
     const intervalId = setInterval(() => {
@@ -120,18 +217,9 @@ const SmartCaneDashboard = () => {
     return () => clearInterval(intervalId);
   }, []);
 
-  // --- XỬ LÝ CLICK DEVICE (MỚI: Đóng tất cả các Panel) ---
   const handleDeviceClick = (device) => {
+    resetAllPanels();
     setSelectedDevice(device);
-    
-    // 1. Đóng và Reset Geofence
-    setShowGeofencePanel(false); 
-    resetGeofenceState(); 
-
-    // 2. Đóng và Reset History (Thêm dòng này)
-    resetHistoryState();
-    
-    // 3. Zoom map
     if (device.location) {
       setMapCenter([device.location.lat, device.location.lng]);
       setMapZoom(16);
@@ -185,16 +273,11 @@ const SmartCaneDashboard = () => {
     }
   };
 
-  // --- HISTORY (MỚI: Đóng Geofence khi mở History) ---
   const handleShowHistory = (device) => {
-    // Đóng Geofence trước
-    setShowGeofencePanel(false);
-    resetGeofenceState();
-
-    // Mở History
+    resetAllPanels();
+    setActivePanel('history');
     setHistoryDevice(device);
-    setHistoryMode(true);
-    setRoutePath([]);
+    setSelectedDevice(device);
   };
 
   const handleLoadHistory = async (deviceId, hours) => {
@@ -220,7 +303,9 @@ const SmartCaneDashboard = () => {
   };
 
   const handleCloseHistory = () => {
-    resetHistoryState(); // Dùng hàm chung cho gọn
+    setActivePanel(null);
+    setHistoryDevice(null);
+    setHistoryPath([]);
   };
 
   const filteredDevices = devices.filter((device) => {
@@ -235,16 +320,11 @@ const SmartCaneDashboard = () => {
     fetchDevices(false);
   };
 
-  // --- GEOFENCE LOGIC (MỚI: Đóng History khi mở Geofence) ---
   const handleManageGeofence = (device) => {
-    // Đóng History trước
-    resetHistoryState();
-
-    // Mở Geofence
+    resetAllPanels();
+    setActivePanel('geofence');
     setGeofenceDevice(device);
     setSelectedDevice(device);
-    setShowGeofencePanel(true);
-    resetGeofenceState();
   };
 
   const handleCreateGeofence = (device) => {
@@ -267,11 +347,9 @@ const SmartCaneDashboard = () => {
     }
   };
 
-  // --- XỬ LÝ CLICK BẢN ĐỒ (CHỌN TỌA ĐỘ) ---
   const handleMapClick = (latlng) => {
     if (pickingLocation) {
       setPickingLocation(false);
-      
       const updatedGeofence = {
         ...(tempGeofenceData || {}),
         centerLatitude: latlng.lat,
@@ -308,13 +386,27 @@ const SmartCaneDashboard = () => {
     }
   };
 
+  const handleDeleteSuccess = (deletedDeviceId) => {
+    if (selectedDevice?.id === deletedDeviceId || 
+        historyDevice?.id === deletedDeviceId || 
+        geofenceDevice?.id === deletedDeviceId) {
+      resetAllPanels();
+      setSelectedDevice(null);
+    }
+    handleRefreshData();
+  };
+
   return (
     <div className="flex flex-col h-screen bg-gray-50 font-sans">
       <Header
         sidebarOpen={sidebarOpen}
         setSidebarOpen={setSidebarOpen}
         notifications={notifications}
+        onRefreshNotifications={handleRefreshNotifications}
+        onNotificationClick={handleNotificationClick}
+        onHeaderInteraction={handleHeaderInteraction} // <-- TRUYỀN HÀM XUỐNG
       />
+      
       <div className="flex flex-1 overflow-hidden relative">
         <Sidebar
           isOpen={sidebarOpen}
@@ -332,11 +424,7 @@ const SmartCaneDashboard = () => {
             setDeviceToEdit(device);
             setShowEditModal(true);
           }}
-          onDeleteSuccess={() => {
-            setSelectedDevice(null);
-            setRoutePath([]);
-            handleRefreshData();
-          }}
+          onDeleteSuccess={handleDeleteSuccess}
           onShowHistory={handleShowHistory}
           onManageGeofence={handleManageGeofence}
           loading={loading}
@@ -359,7 +447,7 @@ const SmartCaneDashboard = () => {
               showGeofence={showGeofence}
               selectedDevice={selectedDevice}
               setSelectedDevice={setSelectedDevice}
-              routePath={historyMode ? historyPath : routePath}
+              routePath={activePanel === 'history' ? historyPath : routePath}
               onGetDirection={handleGetDirection}
               userLocation={userLocation}
               onMapClick={handleMapClick}
@@ -372,7 +460,7 @@ const SmartCaneDashboard = () => {
           )}
         </main>
 
-        {historyMode && historyDevice && (
+        {activePanel === 'history' && historyDevice && (
           <HistoryPanel
             device={historyDevice}
             onClose={handleCloseHistory}
@@ -381,19 +469,23 @@ const SmartCaneDashboard = () => {
           />
         )}
 
-        {showGeofencePanel && geofenceDevice && (
+        {activePanel === 'geofence' && geofenceDevice && (
           <GeofencePanel
             device={geofenceDevice}
             onClose={() => {
-                setShowGeofencePanel(false);
-                resetGeofenceState();
+                setActivePanel(null);
+                setGeofenceDevice(null);
             }}
             onCreateGeofence={handleCreateGeofence}
             onEditGeofence={handleEditGeofence}
             onRefresh={handleRefreshData}
             refreshTrigger={geofenceUpdateTrigger}
             onGeofenceClick={handleFocusGeofence}
-            onClearSelection={resetGeofenceState}
+            onClearSelection={() => {
+                setEditingGeofence(null);
+                setTempGeofenceData(null);
+                setPickingLocation(false);
+            }}
           />
         )}
       </div>
@@ -428,6 +520,14 @@ const SmartCaneDashboard = () => {
             setShowGeofenceModal(false);
             toast.info("Hãy click vào vị trí mong muốn trên bản đồ");
           }}
+        />
+      )}
+
+      {sosPopup && (
+        <SOSPopup
+          alert={sosPopup}
+          onClose={() => setSOSPopup(null)}
+          onLocate={handleLocateAlert}
         />
       )}
     </div>

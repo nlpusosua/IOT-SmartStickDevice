@@ -1,10 +1,9 @@
+
 import Swal from "sweetalert2";
 import React, { useState } from "react";
-import { Clock, AlertCircle, Edit2, Trash2, History } from "lucide-react";
+import { Clock, AlertCircle, Edit2, Trash2, History, Circle } from "lucide-react";
 import { removeDevice } from "../../service/deviceService";
 import { toast } from "react-toastify";
-import { deleteDevice } from "../../service/deviceService";
-import { Circle } from "lucide-react";
 
 const DeviceList = ({
   devices,
@@ -20,42 +19,31 @@ const DeviceList = ({
   const handleRemove = async (e, device) => {
     e.stopPropagation();
 
-    // 1. Thay window.confirm bằng Swal
     const result = await Swal.fire({
       title: "Gỡ bỏ thiết bị?",
       text: `Bạn có chắc muốn gỡ "${device.name}"? Thiết bị sẽ quay về kho.`,
       icon: "warning",
       showCancelButton: true,
-      confirmButtonColor: "#d33", // Màu đỏ cho nút Xóa
-      cancelButtonColor: "#3085d6", // Màu xanh cho nút Hủy
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#3085d6",
       confirmButtonText: "Vâng, gỡ bỏ!",
       cancelButtonText: "Hủy",
       reverseButtons: true,
-      // THÊM DÒNG NÀY: Đảm bảo Swal sử dụng style mặc định của nó
       buttonsStyling: true,
-      // Tùy chọn thêm để đẹp hơn
-      reverseButtons: true, // Đảo nút Hủy lên trước để tránh bấm nhầm
     });
 
-    // Nếu người dùng bấm Hủy hoặc click ra ngoài
-    if (!result.isConfirmed) {
-      return;
-    }
+    if (!result.isConfirmed) return;
 
     setDeletingId(device.id);
 
     try {
       await removeDevice(device.id);
-
-      // 2. Vẫn giữ Toast cho thông báo thành công (UX mượt hơn)
       toast.success("Đã gỡ bỏ thiết bị thành công!");
-
-      // Nếu bạn muốn dùng Swal cho thông báo thành công luôn (tùy chọn):
       await Swal.fire("Đã gỡ!", "Thiết bị đã được gỡ bỏ.", "success");
-
-      onDeleteSuccess();
+      
+      // ⭐ GỌI callback để Dashboard reset tất cả state liên quan
+      onDeleteSuccess(device.id);
     } catch (error) {
-      // Xử lý lỗi
       const errorMessage =
         error.response?.data && typeof error.response.data === "string"
           ? error.response.data
@@ -104,7 +92,6 @@ const DeviceList = ({
                 : "bg-white border-2 border-gray-200 hover:border-blue-400 hover:shadow-md"
             }`}
           >
-            {/* --- PHẦN HEADER (Tên & Trạng thái) --- */}
             <div className="flex items-start justify-between mb-3">
               <div className="flex-1">
                 <h3 className="text-sm font-semibold text-gray-800 mb-1">
@@ -127,8 +114,6 @@ const DeviceList = ({
               </div>
             </div>
 
-            {/* --- THÔNG TIN THỜI GIAN & CẢNH BÁO --- */}
-            {/* Mình đưa phần này lên trên nút bấm cho đẹp hơn */}
             <div className="flex items-center gap-4 mb-3 text-sm">
               <div className="flex items-center gap-2 text-gray-600">
                 <Clock size={16} />
@@ -150,8 +135,6 @@ const DeviceList = ({
               </div>
             )}
 
-            {/* --- NÚT HÀNH ĐỘNG (Lịch sử - Sửa - Xóa) --- */}
-            {/* Chỉ giữ lại 1 cụm này thôi, mình đã xóa cụm bị trùng ở dưới */}
             <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-200">
               <button
                 onClick={(e) => {

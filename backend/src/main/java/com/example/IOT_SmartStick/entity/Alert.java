@@ -31,6 +31,10 @@ public class Alert {
     @Column(nullable = false)
     private LocalDateTime timestamp;
 
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean isRead = false;
+
     // Mối quan hệ: Nhiều Alert thuộc về một Device
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "device_id", nullable = false)
@@ -40,4 +44,6 @@ public class Alert {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "location_id") // Có thể null
     private Location location;
+
+
 }

@@ -25,7 +25,7 @@ public class Device {
     private String name;
 
     @Column(unique = true, nullable = false)
-    private String deviceToken; // IMEI hoặc Serial Number
+    private String deviceToken;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -65,11 +65,11 @@ public class Device {
     private List<Geofence> geofences;
 
     // Cache trạng thái geofence
-    @Column(length = 20)
-    @Builder.Default
-    private String geofenceStatus = "INSIDE"; // "INSIDE", "OUTSIDE", "NO_GEOFENCE"
+    @Column(name = "geofence_status")
+    private String geofenceStatus; // "INSIDE", "OUTSIDE", "NO_GEOFENCE"
 
-    private Long lastViolatedGeofenceId; // ID của geofence bị vi phạm gần nhất
+    @Column(name = "last_violated_geofence_id")
+    private Long lastViolatedGeofenceId;
 
     @OneToMany(mappedBy = "device", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude

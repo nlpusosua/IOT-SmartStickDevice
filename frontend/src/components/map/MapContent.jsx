@@ -180,7 +180,7 @@ const MapContent = ({
                     </h3>
                     <div className="text-sm text-gray-600 space-y-1 mb-3">
                       <p>Trạng thái: {device.status}</p>
-                      <p>Pin: {device.batteryLevel}%</p>
+                      
                     </div>
                     <button
                       onClick={(e) => {
