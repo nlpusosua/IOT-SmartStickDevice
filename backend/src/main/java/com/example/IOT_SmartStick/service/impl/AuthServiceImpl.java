@@ -102,11 +102,13 @@ public class AuthServiceImpl implements AuthService {
         final User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // Tạo access token
-        final String accessToken = jwtService.generateToken(userDetails);
+        // Kiểm tra nếu bị BAN thì không cho đăng nhập
+        if (user.getStatus() == UserStatus.BANNED) {
+            throw new DisabledException("Tài khoản của bạn đã bị khóa bởi Admin.");
+        }
 
-        // Tạo refresh token (trả về String UUID)
-        String refreshToken = refreshTokenService.createRefreshToken(user);  // ← THAY ĐỔI
+        final String accessToken = jwtService.generateToken(userDetails);
+        String refreshToken = refreshTokenService.createRefreshToken(user);
 
         return AuthResponse.builder()
                 .accessToken(accessToken)
@@ -114,6 +116,7 @@ public class AuthServiceImpl implements AuthService {
                 .tokenType("Bearer")
                 .expiresIn(jwtService.getAccessTokenExpiration())
                 .message("Login successful")
+                .role(user.getRole()) // <--- TRẢ VỀ ROLE
                 .build();
     }
 

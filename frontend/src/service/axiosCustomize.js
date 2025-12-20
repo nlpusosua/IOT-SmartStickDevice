@@ -1,8 +1,8 @@
-import axios from 'axios';
-import { refreshTokenAPI } from './authService';
+import axios from "axios";
+import { refreshTokenAPI } from "./authService";
 
 const instance = axios.create({
-  baseURL: 'http://localhost:8080',
+  baseURL: "http://35.186.148.135:8080",
 });
 
 // Biến để theo dõi có đang refresh token không (tránh gọi nhiều lần)
@@ -13,14 +13,14 @@ let failedQueue = [];
  * Xử lý các request đang chờ sau khi refresh token
  */
 const processQueue = (error, token = null) => {
-  failedQueue.forEach(prom => {
+  failedQueue.forEach((prom) => {
     if (error) {
       prom.reject(error);
     } else {
       prom.resolve(token);
     }
   });
-  
+
   failedQueue = [];
 };
 
@@ -28,9 +28,9 @@ const processQueue = (error, token = null) => {
 // Tự động thêm access token vào header của mọi request
 instance.interceptors.request.use(
   function (config) {
-    const token = localStorage.getItem('accessToken');
+    const token = localStorage.getItem("accessToken");
     if (token) {
-      config.headers['Authorization'] = `Bearer ${token}`;
+      config.headers["Authorization"] = `Bearer ${token}`;
     }
     return config;
   },
@@ -50,10 +50,11 @@ instance.interceptors.response.use(
 
     // Nếu lỗi 401 (Unauthorized) và chưa retry
     if (error.response?.status === 401 && !originalRequest._retry) {
-      
       // Nếu đang ở trang login/signup thì không cần refresh
-      if (originalRequest.url.includes('/auth/login') || 
-          originalRequest.url.includes('/auth/signup')) {
+      if (
+        originalRequest.url.includes("/auth/login") ||
+        originalRequest.url.includes("/auth/signup")
+      ) {
         return Promise.reject(error);
       }
 
@@ -62,11 +63,11 @@ instance.interceptors.response.use(
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
         })
-          .then(token => {
-            originalRequest.headers['Authorization'] = 'Bearer ' + token;
+          .then((token) => {
+            originalRequest.headers["Authorization"] = "Bearer " + token;
             return instance(originalRequest);
           })
-          .catch(err => {
+          .catch((err) => {
             return Promise.reject(err);
           });
       }
@@ -74,12 +75,12 @@ instance.interceptors.response.use(
       originalRequest._retry = true;
       isRefreshing = true;
 
-      const refreshToken = localStorage.getItem('refreshToken');
-      
+      const refreshToken = localStorage.getItem("refreshToken");
+
       if (!refreshToken) {
         // Không có refresh token → Logout
         localStorage.clear();
-        window.location.href = '/login';
+        window.location.href = "/login";
         return Promise.reject(error);
       }
 
@@ -89,22 +90,21 @@ instance.interceptors.response.use(
         const { accessToken } = response;
 
         // Lưu token mới
-        localStorage.setItem('accessToken', accessToken);
+        localStorage.setItem("accessToken", accessToken);
 
         // Cập nhật header cho request ban đầu
-        originalRequest.headers['Authorization'] = 'Bearer ' + accessToken;
+        originalRequest.headers["Authorization"] = "Bearer " + accessToken;
 
         // Xử lý các request đang chờ
         processQueue(null, accessToken);
 
         // Gọi lại request ban đầu với token mới
         return instance(originalRequest);
-
       } catch (refreshError) {
         // Refresh token cũng fail → Logout
         processQueue(refreshError, null);
         localStorage.clear();
-        window.location.href = '/login';
+        window.location.href = "/login";
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;

@@ -1,5 +1,6 @@
 package com.example.IOT_SmartStick.dto.response;
 
+import com.example.IOT_SmartStick.constant.UserRole;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -15,4 +16,5 @@ public class AuthResponse {
     private String tokenType;        // "Bearer"
     private Long expiresIn;          // Thời gian hết hạn của access token (ms)
     private String message;
+    private UserRole role;
 }
