@@ -49,12 +49,17 @@ const Login = () => {
         // Lưu token vào LocalStorage
         localStorage.setItem('accessToken', data.accessToken);
         localStorage.setItem('refreshToken', data.refreshToken);
+        const role = data.role || 'CAREGIVER'; // Fallback nếu backend chưa trả về role
+        localStorage.setItem('role', role);
         
         // Thông báo và chuyển trang
         toast.success(data.message || "Đăng nhập thành công!");
         
-        // Chuyển về trang chủ (Dashboard)
-        navigate('/'); 
+       if (role === 'ADMIN') {
+            navigate('/admin/dashboard');
+        } else {
+            navigate('/');
+        }
       } else {
         toast.error("Đăng nhập thất bại: Không nhận được token.");
       }
@@ -62,22 +67,13 @@ const Login = () => {
     } catch (error) {
       // Xử lý lỗi từ Backend
       if (error.response && error.response.data) {
-        // TRƯỜNG HỢP 1: Backend trả về chuỗi text thô
-        if (typeof error.response.data === 'string') {
-          toast.error(error.response.data);
-        } 
-        // TRƯỜNG HỢP 2: Backend trả về Object JSON { message: "..." }
-        else if (error.response.data.message) {
-          toast.error(error.response.data.message);
-        } 
-        // TRƯỜNG HỢP KHÁC
-        else {
-          toast.error("Đã có lỗi xảy ra");
+             const msg = typeof error.response.data === 'string' 
+                ? error.response.data 
+                : error.response.data.message;
+             toast.error(msg || "Đã có lỗi xảy ra");
+        } else {
+             toast.error("Lỗi kết nối Server");
         }
-      } else {
-        // Lỗi mất mạng hoặc không gọi được server
-        toast.error("Lỗi kết nối đến Server! Vui lòng kiểm tra mạng.");
-      }
     } finally {
       setLoading(false);
     }

@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  # 1. Database MySQL
+  mysqldb:
+    image: mysql:8.0
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD:  # Đặt pass của bạn
+      MYSQL_DATABASE: iot        # Tên DB của bạn
+    ports:
+      - "3307:3306" # Map ra 3307 để tránh đụng nếu server có cái khác
+    volumes:
+      - db_data:/var/lib/mysql
+
+  # 2. Redis
+  redisdb:
+    image: redis:alpine
+    restart: always
+    ports:
+      - "6379:6379"
+
+  # 3. Backend Spring Boot
+  backend:
+    build: ./backend # Đường dẫn tới folder chứa code Java
+    ports:
+      - "8080:8080"
+    depends_on:
+      - mysqldb
+      - redisdb
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysqldb:3306/mydatabase?useSSL=false
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: 
+      SPRING_REDIS_HOST: redisdb
+
+  # 4. Frontend React
+  frontend:
+    build: ./frontend # Đường dẫn tới folder chứa code React
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  db_data:
