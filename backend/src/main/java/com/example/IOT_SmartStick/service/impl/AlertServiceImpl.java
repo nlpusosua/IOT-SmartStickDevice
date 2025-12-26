@@ -23,7 +23,6 @@ public class AlertServiceImpl implements AlertService {
     private final AlertRepository alertRepository;
     private final UserRepository userRepository;
     private final JwtService jwtService;
-    // Inject WebSocket template
     private final SimpMessagingTemplate messagingTemplate;
 
     @Override
@@ -46,8 +45,6 @@ public class AlertServiceImpl implements AlertService {
         Integer userId = getUserIdFromToken(token);
         Alert alert = alertRepository.findById(alertId)
                 .orElseThrow(() -> new ResourceNotFoundException("Alert not found"));
-
-        // SỬA: Lấy owner thông qua device
         if (alert.getDevice().getOwner() == null ||
                 !alert.getDevice().getOwner().getId().equals(userId)) {
             throw new SecurityException("Bạn không có quyền đánh dấu alert này");
@@ -65,24 +62,16 @@ public class AlertServiceImpl implements AlertService {
         unreadAlerts.forEach(alert -> alert.setIsRead(true));
         alertRepository.saveAll(unreadAlerts);
     }
-
-    // --- PHẦN QUAN TRỌNG NHẤT CẦN SỬA ---
     @Override
     @Transactional
     public void createAlert(Alert alert) {
-        // 1. Lưu vào Database
         Alert savedAlert = alertRepository.save(alert);
 
-        // 2. Kiểm tra xem thiết bị có chủ sở hữu không
         if (savedAlert.getDevice() != null && savedAlert.getDevice().getOwner() != null) {
-            // SỬA LỖI Ở ĐÂY: Lấy ID từ Device Owner
             Integer userId = savedAlert.getDevice().getOwner().getId();
 
-            // 3. Convert dữ liệu sang DTO để gửi xuống Frontend
             AlertResponseDTO responseDTO = convertToDTO(savedAlert);
 
-            // 4. Gửi WebSocket đến đúng topic user đang nghe
-            // Topic: /topic/user/{userId}/alerts
             messagingTemplate.convertAndSend("/topic/user/" + userId + "/alerts", responseDTO);
 
             System.out.println("✅ Đã gửi WebSocket tới user: " + userId);
@@ -107,7 +96,6 @@ public class AlertServiceImpl implements AlertService {
                 .isRead(alert.getIsRead())
                 .deviceId(alert.getDevice().getId())
                 .deviceName(alert.getDevice().getName())
-                // Location có thể null nếu cảnh báo Geofence không kèm tọa độ
                 .latitude(alert.getLocation() != null ? alert.getLocation().getLatitude() : null)
                 .longitude(alert.getLocation() != null ? alert.getLocation().getLongitude() : null)
                 .build();

@@ -29,24 +29,19 @@ public class JwtService {
     private long refreshExpiration;
 
     // ========== ACCESS TOKEN METHODS ==========
-
-    // Trích xuất username (email) từ token
     public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
     }
 
-    // Trích xuất một claim cụ thể
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
         final Claims claims = extractAllClaims(token);
         return claimsResolver.apply(claims);
     }
 
-    // Tạo access token (chỉ chứa username)
     public String generateToken(UserDetails userDetails) {
         return generateToken(new HashMap<>(), userDetails);
     }
 
-    // Tạo access token (chứa thêm extra claims)
     public String generateToken(
             Map<String, Object> extraClaims,
             UserDetails userDetails
@@ -54,7 +49,6 @@ public class JwtService {
         return buildToken(extraClaims, userDetails, jwtExpiration);
     }
 
-    // Kiểm tra token có hợp lệ không
     public boolean isTokenValid(String token, UserDetails userDetails) {
         final String username = extractUsername(token);
         return (username.equals(userDetails.getUsername())) && !isTokenExpired(token);
@@ -62,24 +56,14 @@ public class JwtService {
 
     // ========== REFRESH TOKEN METHODS ==========
 
-    /**
-     * Tạo refresh token - đây là UUID string không phải JWT
-     * @return UUID string
-     */
     public String generateRefreshToken() {
         return UUID.randomUUID().toString();
     }
 
-    /**
-     * Lấy thời gian hết hạn của refresh token (milliseconds)
-     */
     public long getRefreshTokenExpiration() {
         return refreshExpiration;
     }
 
-    /**
-     * Lấy thời gian hết hạn của access token (milliseconds)
-     */
     public long getAccessTokenExpiration() {
         return jwtExpiration;
     }
@@ -93,24 +77,21 @@ public class JwtService {
     ) {
         return Jwts.builder()
                 .setClaims(extraClaims)
-                .setSubject(userDetails.getUsername()) // Username ở đây là email
+                .setSubject(userDetails.getUsername())
                 .setIssuedAt(new Date(System.currentTimeMillis()))
                 .setExpiration(new Date(System.currentTimeMillis() + expiration))
                 .signWith(getSignInKey(), SignatureAlgorithm.HS256)
                 .compact();
     }
 
-    // Kiểm tra token hết hạn chưa
     private boolean isTokenExpired(String token) {
         return extractExpiration(token).before(new Date());
     }
 
-    // Lấy thời gian hết hạn
     private Date extractExpiration(String token) {
         return extractClaim(token, Claims::getExpiration);
     }
 
-    // Trích xuất tất cả claims
     private Claims extractAllClaims(String token) {
         return Jwts.parserBuilder()
                 .setSigningKey(getSignInKey())
@@ -119,7 +100,6 @@ public class JwtService {
                 .getBody();
     }
 
-    // Lấy key để ký token
     private Key getSignInKey() {
         byte[] keyBytes = Decoders.BASE64.decode(secretKey);
         return Keys.hmacShaKeyFor(keyBytes);

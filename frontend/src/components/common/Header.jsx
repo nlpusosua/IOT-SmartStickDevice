@@ -11,7 +11,7 @@ const Header = ({
   notifications, 
   onRefreshNotifications,
   onNotificationClick,
-  onHeaderInteraction // <-- PROP MỚI
+  onHeaderInteraction 
 }) => {
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -20,23 +20,18 @@ const Header = ({
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
-  // Xử lý click chuông
   const toggleNotification = () => {
     if (!notificationOpen) {
-        // Nếu sắp mở -> gọi hàm cha để tắt panel dưới
         if (onHeaderInteraction) onHeaderInteraction();
-        // Tắt menu user nếu đang mở
+
         setUserMenuOpen(false);
     }
     setNotificationOpen(!notificationOpen);
   };
 
-  // Xử lý click User
   const toggleUserMenu = () => {
     if (!userMenuOpen) {
-        // Nếu sắp mở -> gọi hàm cha để tắt panel dưới
         if (onHeaderInteraction) onHeaderInteraction();
-        // Tắt menu notification nếu đang mở
         setNotificationOpen(false);
     }
     setUserMenuOpen(!userMenuOpen);

@@ -4,7 +4,7 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 
-@Data // Lombok tự tạo getter, setter, constructor...
+@Data
 public class GpsData {
     private BigDecimal latitude;
     private BigDecimal longitude;

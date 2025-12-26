@@ -66,7 +66,7 @@ const MapContent = ({
   devices,
   handleDeviceClick,
   showGeofence,
-  selectedDevice, // <-- Cần cái này để lọc hiển thị
+  selectedDevice, 
   setSelectedDevice,
   routePath,
   onGetDirection,

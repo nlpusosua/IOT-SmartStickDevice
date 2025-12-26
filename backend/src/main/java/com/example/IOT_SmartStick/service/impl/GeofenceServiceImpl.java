@@ -39,7 +39,6 @@ public class GeofenceServiceImpl implements GeofenceService {
         Device device = deviceRepository.findById(deviceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Device not found"));
 
-        // Kiểm tra quyền sở hữu
         if (device.getOwner() == null || !device.getOwner().getId().equals(user.getId())) {
             throw new SecurityException("Bạn không có quyền tạo geofence cho thiết bị này");
         }

@@ -23,7 +23,7 @@ import java.io.IOException;
 public class JwtAuthFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
-    private final RedisTokenService redisTokenService;  // ← THAY ĐỔI
+    private final RedisTokenService redisTokenService;
 
     @Override
     protected void doFilterInternal(
@@ -33,10 +33,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     ) throws ServletException, IOException {
 
         String requestPath = request.getServletPath();
-//        if (requestPath.startsWith("/api/v1/auth/")) {
-//            filterChain.doFilter(request, response);
-//            return;
-//        }
         if (requestPath.startsWith("/api/v1/auth/") || requestPath.equals("/api/device/location")) {
             filterChain.doFilter(request, response);
             return;
@@ -53,13 +49,12 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         jwt = authHeader.substring(7);
 
-        // ===== KIỂM TRA BLACKLIST BẰNG REDIS =====
-        if (redisTokenService.isBlacklisted(jwt)) {  // ← THAY ĐỔI
+        if (redisTokenService.isBlacklisted(jwt)) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.getWriter().write("Token has been invalidated (logged out)");
             return;
         }
-        // ==========================================
+
 
         try {
             userEmail = jwtService.extractUsername(jwt);

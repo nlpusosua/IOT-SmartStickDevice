@@ -7,11 +7,11 @@ import lombok.Data;
 public class NetworkData {
 
     @JsonProperty("type")
-    private String type; // "wifi" [cite: 191]
+    private String type;
 
     @JsonProperty("signalStrength")
-    private Integer signalStrength; // -67 [cite: 192]
+    private Integer signalStrength;
 
     @JsonProperty("gprsConnected")
-    private Boolean gprsConnected; // false [cite: 194]
+    private Boolean gprsConnected;
 }

@@ -28,6 +28,6 @@ public class VerificationToken {
     public VerificationToken(String token, User user) {
         this.token = token;
         this.user = user;
-        this.expiryDate = LocalDateTime.now().plusMinutes(15); // Ví dụ: Hết hạn sau 15 phút
+        this.expiryDate = LocalDateTime.now().plusMinutes(15);
     }
 }

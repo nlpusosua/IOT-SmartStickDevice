@@ -30,7 +30,7 @@ public class AdminServiceImpl implements AdminService {
 
     private final UserRepository userRepository;
     private final DeviceRepository deviceRepository;
-    private final AlertRepository alertRepository; // Giả sử bạn có repository này
+    private final AlertRepository alertRepository;
 
     @Override
     public List<UserResponseDTO> getAllUsers() {
@@ -72,8 +72,7 @@ public class AdminServiceImpl implements AdminService {
         long onlineDevices = deviceRepository.findAll().stream()
                 .filter(d -> d.getStatus() == DeviceStatus.ONLINE)
                 .count();
-        // Giả sử lấy số alert chưa đọc làm active alerts
-        long activeAlerts = 0; // alertRepository.countByIsReadFalse(); (Tùy chỉnh theo repo của bạn)
+        long activeAlerts = 0;
 
         return DashboardStatsDTO.builder()
                 .totalUsers(totalUsers)
@@ -84,32 +83,23 @@ public class AdminServiceImpl implements AdminService {
     }
     @Override
     public List<ChartDataDTO> getUserGrowthStats() {
-        // Lấy tất cả user (hoặc có thể viết Query GROUP BY trong Repository nếu muốn tối ưu hơn cho DB lớn)
         List<User> users = userRepository.findAll();
-
-        // Map để đếm số user theo tháng (Dùng LinkedHashMap để giữ thứ tự)
-        // Key: "MM/yyyy", Value: Count
         Map<String, Long> statsMap = new LinkedHashMap<>();
 
-        // Khởi tạo 6 tháng gần nhất bằng 0 để biểu đồ đẹp (không bị khuyết tháng)
         LocalDateTime now = LocalDateTime.now();
         for (int i = 5; i >= 0; i--) {
             String monthKey = now.minusMonths(i).format(DateTimeFormatter.ofPattern("MM/yyyy"));
             statsMap.put(monthKey, 0L);
         }
 
-        // Duyệt qua user và cộng dồn
         for (User user : users) {
             if (user.getCreatedAt() != null) {
                 String key = user.getCreatedAt().format(DateTimeFormatter.ofPattern("MM/yyyy"));
-                // Chỉ tính nếu tháng đó nằm trong map (tức là trong 6 tháng gần đây)
                 if (statsMap.containsKey(key)) {
                     statsMap.put(key, statsMap.get(key) + 1);
                 }
             }
         }
-
-        // Convert sang List DTO
         List<ChartDataDTO> result = new ArrayList<>();
         statsMap.forEach((k, v) -> result.add(new ChartDataDTO(k, v)));
         return result;

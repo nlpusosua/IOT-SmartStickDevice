@@ -13,7 +13,5 @@ import lombok.NoArgsConstructor;
 public class AdminDeviceRequestDTO {
     @NotBlank(message = "Device token is required")
     private String deviceToken;
-
-    // Có thể để trống, nếu trống hệ thống tự đặt tên mặc định
     private String name;
 }

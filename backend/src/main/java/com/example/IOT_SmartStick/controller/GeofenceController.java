@@ -14,14 +14,11 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/geofence")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost:3000")
+@CrossOrigin(origins = "*")
 public class GeofenceController {
 
     private final GeofenceService geofenceService;
 
-    /**
-     * Tạo geofence mới cho device
-     */
     @PostMapping("/device/{deviceId}")
     public ResponseEntity<GeofenceResponseDTO> createGeofence(
             @PathVariable Long deviceId,
@@ -32,9 +29,6 @@ public class GeofenceController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    /**
-     * Lấy danh sách geofence của device
-     */
     @GetMapping("/device/{deviceId}")
     public ResponseEntity<List<GeofenceResponseDTO>> getGeofencesByDevice(
             @PathVariable Long deviceId,
@@ -44,9 +38,6 @@ public class GeofenceController {
         return ResponseEntity.ok(geofences);
     }
 
-    /**
-     * Lấy thông tin 1 geofence
-     */
     @GetMapping("/{geofenceId}")
     public ResponseEntity<GeofenceResponseDTO> getGeofenceById(
             @PathVariable Long geofenceId,
@@ -56,9 +47,6 @@ public class GeofenceController {
         return ResponseEntity.ok(response);
     }
 
-    /**
-     * Cập nhật geofence
-     */
     @PutMapping("/{geofenceId}")
     public ResponseEntity<GeofenceResponseDTO> updateGeofence(
             @PathVariable Long geofenceId,
@@ -69,9 +57,6 @@ public class GeofenceController {
         return ResponseEntity.ok(response);
     }
 
-    /**
-     * Bật/tắt geofence
-     */
     @PatchMapping("/{geofenceId}/toggle")
     public ResponseEntity<GeofenceResponseDTO> toggleGeofenceStatus(
             @PathVariable Long geofenceId,
@@ -81,9 +66,6 @@ public class GeofenceController {
         return ResponseEntity.ok(response);
     }
 
-    /**
-     * Xóa geofence
-     */
     @DeleteMapping("/{geofenceId}")
     public ResponseEntity<Void> deleteGeofence(
             @PathVariable Long geofenceId,

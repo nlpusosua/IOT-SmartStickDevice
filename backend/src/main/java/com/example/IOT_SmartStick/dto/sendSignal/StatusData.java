@@ -7,11 +7,11 @@ import lombok.Data;
 public class StatusData {
 
     @JsonProperty("sos")
-    private Boolean sos; // false [cite: 213]
+    private Boolean sos;
 
     @JsonProperty("lost")
     private Boolean lost;
 
     @JsonProperty("motion")
-    private String motion; // "IDLE" [cite: 215]
+    private String motion;
 }

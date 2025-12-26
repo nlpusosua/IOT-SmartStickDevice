@@ -40,8 +40,6 @@ const DeviceList = ({
       await removeDevice(device.id);
       toast.success("Đã gỡ bỏ thiết bị thành công!");
       await Swal.fire("Đã gỡ!", "Thiết bị đã được gỡ bỏ.", "success");
-      
-      // ⭐ GỌI callback để Dashboard reset tất cả state liên quan
       onDeleteSuccess(device.id);
     } catch (error) {
       const errorMessage =

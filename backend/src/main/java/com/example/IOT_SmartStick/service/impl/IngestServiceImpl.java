@@ -32,7 +32,6 @@ public class IngestServiceImpl implements IngestService {
     @Transactional
     public void ingestDeviceData(String authHeader, IngestLocationRequest payload) {
 
-        // 1. Validate Token từ Body
         String deviceTokenFromBody = payload.getDeviceToken();
         if (deviceTokenFromBody == null || deviceTokenFromBody.isEmpty()) {
             throw new IllegalArgumentException("Device Token is missing in request body");
@@ -41,7 +40,6 @@ public class IngestServiceImpl implements IngestService {
         Device device = deviceRepository.findByDeviceToken(deviceTokenFromBody)
                 .orElseThrow(() -> new SecurityException("Device not found with token: " + deviceTokenFromBody));
 
-        // 2. Validate GPS
         if (payload.getGps() == null || payload.getGps().getLatitude() == null || payload.getGps().getLongitude() == null) {
             throw new IllegalArgumentException("GPS data is missing");
         }
@@ -49,7 +47,6 @@ public class IngestServiceImpl implements IngestService {
         Double latitude = payload.getGps().getLatitude().doubleValue();
         Double longitude = payload.getGps().getLongitude().doubleValue();
 
-        // 3. Parse Time
         LocalDateTime timestamp;
         try {
             timestamp = LocalDateTime.parse(payload.getTimestamp(), DateTimeFormatter.ISO_DATE_TIME);
@@ -57,7 +54,6 @@ public class IngestServiceImpl implements IngestService {
             timestamp = LocalDateTime.now();
         }
 
-        // 4. Lưu Lịch sử Location
         Location newLocation = Location.builder()
                 .device(device)
                 .latitude(latitude)
@@ -66,27 +62,22 @@ public class IngestServiceImpl implements IngestService {
                 .build();
         Location savedLocation = locationRepository.save(newLocation);
 
-        // 5. Check Geofence (Vùng an toàn)
         checkGeofenceViolation(device, latitude, longitude);
 
-        // 6. Cập nhật trạng thái Device
         device.setLastLatitude(latitude);
         device.setLastLongitude(longitude);
         device.setLastSeen(LocalDateTime.now());
         device.setStatus(DeviceStatus.ONLINE);
         deviceRepository.save(device);
 
-        // 7. Xử lý SOS và LOST
         if (payload.getStatus() != null) {
             if (Boolean.TRUE.equals(payload.getStatus().getSos())) {
                 log.warn("🚨 SOS DETECTED: {}", device.getName());
-                // GỌI NOTIFICATION SERVICE
                 notificationService.sendSOSAlert(device, savedLocation);
             }
 
             if (Boolean.TRUE.equals(payload.getStatus().getLost())) {
                 log.warn("📍 LOST DETECTED: {}", device.getName());
-                // GỌI NOTIFICATION SERVICE
                 notificationService.sendLostAlert(device, savedLocation);
             }
         }
@@ -108,7 +99,7 @@ public class IngestServiceImpl implements IngestService {
                 insideAny = true;
                 break;
             } else {
-                violatedGeofence = geofence; // Lưu tạm vùng bị vi phạm
+                violatedGeofence = geofence;
             }
         }
 
@@ -116,10 +107,9 @@ public class IngestServiceImpl implements IngestService {
         String newStatus = insideAny ? "INSIDE" : "OUTSIDE";
         device.setGeofenceStatus(newStatus);
 
-        // Chỉ gửi thông báo khi trạng thái thay đổi
+
         if (!newStatus.equals(oldStatus)) {
             if ("OUTSIDE".equals(newStatus) && violatedGeofence != null) {
-                // Gửi cảnh báo RA KHỎI vùng
                 notificationService.sendGeofenceAlert(
                         device,
                         "GEOFENCE_BREACH",
@@ -129,7 +119,6 @@ public class IngestServiceImpl implements IngestService {
                         Double.valueOf(violatedGeofence.getRadiusMeters()) // Đảm bảo truyền Double
                 );
             } else if ("INSIDE".equals(newStatus)) {
-                // Gửi thông báo QUAY LẠI vùng
                 Geofence currentZone = activeGeofences.get(0);
                 notificationService.sendGeofenceAlert(
                         device,

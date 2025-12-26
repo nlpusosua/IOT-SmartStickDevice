@@ -30,17 +30,14 @@ public class LocationHistoryServiceImpl implements LocationHistoryService {
 
     @Override
     public LocationHistoryDTO getDeviceHistory(Long deviceId, LocalDateTime startTime, LocalDateTime endTime, String token) {
-        // Xác thực user
         String email = jwtService.extractUsername(token);
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        // Tìm device (convert Long -> Integer nếu cần, logic giữ nguyên)
         Long deviceIdInt = deviceId.longValue();
         Device device = deviceRepository.findById(deviceIdInt)
                 .orElseThrow(() -> new ResourceNotFoundException("Device not found with id: " + deviceId));
 
-        // Kiểm tra quyền sở hữu
         if (device.getOwner() == null) {
             throw new SecurityException("Thiết bị chưa được kích hoạt");
         }
@@ -49,7 +46,6 @@ public class LocationHistoryServiceImpl implements LocationHistoryService {
             throw new SecurityException("Bạn không có quyền xem lịch sử thiết bị này");
         }
 
-        // Lấy dữ liệu vị trí
         List<Location> locations = locationRepository.findByDeviceIdAndTimestampBetween(
                 deviceId,
                 startTime,

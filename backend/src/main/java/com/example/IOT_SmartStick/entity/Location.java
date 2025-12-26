@@ -10,23 +10,21 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Entity
 @Table(name = "locations", indexes = {
-        // Index giúp tìm lịch sử di chuyển của 1 thiết bị trong khoảng thời gian cực nhanh
         @Index(name = "idx_device_timestamp", columnList = "device_id, timestamp")
 })
 public class Location {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id; // BẮT BUỘC dùng Long, vì bảng này sẽ có triệu bản ghi rất nhanh
+    private Long id;
 
     @Column(nullable = false)
-    private Double latitude; // Dùng Double xử lý nhanh hơn BigDecimal cho bản đồ
-
+    private Double latitude;
     @Column(nullable = false)
     private Double longitude;
 
     @Column(nullable = false)
-    private LocalDateTime timestamp; // Thời gian thiết bị ghi nhận vị trí
+    private LocalDateTime timestamp;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "device_id", nullable = false)

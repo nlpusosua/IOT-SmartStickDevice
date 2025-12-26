@@ -1,4 +1,3 @@
-
 package com.example.IOT_SmartStick.config;
 
 import org.springframework.context.annotation.Configuration;

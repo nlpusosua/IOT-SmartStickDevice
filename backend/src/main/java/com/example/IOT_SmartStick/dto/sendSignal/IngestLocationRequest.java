@@ -7,22 +7,21 @@ import lombok.Data;
 @Data
 public class IngestLocationRequest {
 
-    @JsonProperty("deviceToken") // Khớp chính xác với key trong JSON
-    private String deviceToken; // "IOT-STICK-1001"
+    @JsonProperty("deviceToken")
+    private String deviceToken;
 
     @JsonProperty("timestamp")
-    private String timestamp; // "2025-10-05T21:32:15Z"
+    private String timestamp;
 
-    @NotNull // Đảm bảo các thông tin quan trọng phải có
+    @NotNull
     @JsonProperty("gps")
     private GpsData gps;
 
-
     @JsonProperty("network")
-    private NetworkData network; // (tự tạo class này)
+    private NetworkData network;
 
     @NotNull
     @JsonProperty("status")
-    private StatusData status; // (tự tạo class này)
+    private StatusData status;
 
 }

@@ -19,11 +19,9 @@ public class AlertResponseDTO {
     private LocalDateTime timestamp;
     private Boolean isRead;
 
-    // Device info
     private Long deviceId;
     private String deviceName;
 
-    // Location info
     private Double latitude;
     private Double longitude;
 }
