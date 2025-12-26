@@ -24,7 +24,7 @@ public class Geofence {
     private Long id;
 
     @Column(nullable = false)
-    private String name; // VD: "Nhà của bà", "Công viên"
+    private String name;
 
     @Column(nullable = false, precision = 10, scale = 8)
     private BigDecimal centerLatitude;
@@ -33,11 +33,11 @@ public class Geofence {
     private BigDecimal centerLongitude;
 
     @Column(nullable = false)
-    private Integer radiusMeters; // Bán kính tính bằng mét
+    private Integer radiusMeters;
 
     @Column(nullable = false)
     @Builder.Default
-    private Boolean active = true; // Bật/tắt geofence
+    private Boolean active = true;
 
     @CreationTimestamp
     @Column(updatable = false)
@@ -46,12 +46,11 @@ public class Geofence {
     @UpdateTimestamp
     private LocalDateTime updatedAt;
 
-    // Mối quan hệ: Một Device có thể có nhiều Geofence
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "device_id", nullable = false)
     private Device device;
 
-    // Phương thức kiểm tra điểm có nằm trong geofence không
     public boolean isPointInside(double lat, double lng) {
         double distance = calculateDistance(
                 centerLatitude.doubleValue(),
@@ -62,7 +61,6 @@ public class Geofence {
         return distance <= radiusMeters;
     }
 
-    // Tính khoảng cách giữa 2 điểm (Haversine formula)
     private double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
         final int EARTH_RADIUS = 6371000; // meters
 

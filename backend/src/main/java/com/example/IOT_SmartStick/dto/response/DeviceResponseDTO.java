@@ -23,10 +23,9 @@ public class DeviceResponseDTO {
     private Integer ownerId;
     private String ownerName;
 
-    // --- THÊM TRƯỜNG LOCATION (MỚI) ---
     private LocationDTO location;
     private Boolean sos;
-    private String geofence; // "INSIDE" hoặc "OUTSIDE"
+    private String geofence;
 
     @Data
     @Builder

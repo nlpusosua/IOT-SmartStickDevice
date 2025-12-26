@@ -14,9 +14,9 @@ public class EmailServiceImpl implements EmailService {
     private final JavaMailSender mailSender;
     @Override
     public void sendVerificationEmail(User user, String token) {
-        // Đây là URL mà user sẽ click.
-        // "localhost:8080" nên được lưu trong application.properties
-        String verificationUrl = "http://localhost:8080/api/v1/auth/verify?token=" + token;
+
+//        String verificationUrl = "http://localhost:8080/api/v1/auth/verify?token=" + token;
+        String verificationUrl = "http://35.186.148.135:8080/api/v1/auth/verify?token=" + token;
 
         String recipientEmail = user.getEmail();
         String subject = "Xác thực tài khoản IOT-SmartStick";
@@ -31,7 +31,7 @@ public class EmailServiceImpl implements EmailService {
         message.setTo(recipientEmail);
         message.setSubject(subject);
         message.setText(messageBody);
-        message.setFrom("no-reply@smartstick.com"); // Có thể cấu hình
+        message.setFrom("no-reply@smartstick.com");
 
         mailSender.send(message);
     }

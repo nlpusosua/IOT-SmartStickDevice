@@ -19,7 +19,7 @@ public class Device {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id; // Khuyên dùng Long cho ID
+    private Long id;
 
     @Column(nullable = false)
     private String name;
@@ -32,41 +32,34 @@ public class Device {
     @Builder.Default
     private DeviceStatus status = DeviceStatus.OFFLINE;
 
-    // --- CÁC TRƯỜNG CACHE (MỚI THÊM) ---
-    // Lưu vị trí và pin mới nhất tại đây để hiển thị lên bản đồ ngay lập tức
     private Double lastLatitude;
 
     private Double lastLongitude;
 
-    // Thời điểm cuối cùng thiết bị gửi dữ liệu (khác với lastUpdate bên dưới)
     private LocalDateTime lastSeen;
-    // ------------------------------------
 
     @CreationTimestamp
     @Column(updatable = false)
     private LocalDateTime createdAt;
 
     @UpdateTimestamp
-    private LocalDateTime lastUpdate; // Thời điểm record này bị thay đổi thông tin (đổi tên, đổi chủ...)
+    private LocalDateTime lastUpdate;
 
-    // Cho phép owner là null (thiết bị trong kho)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "owner_id", nullable = true)
-    @ToString.Exclude // Quan trọng: Tránh lỗi vòng lặp khi in log
+    @ToString.Exclude
     private User owner;
 
     @OneToMany(mappedBy = "device", cascade = CascadeType.ALL, orphanRemoval = true)
-    @ToString.Exclude // Quan trọng: Tránh load toàn bộ list history khi log Device
+    @ToString.Exclude
     private List<Location> locations;
 
-    // Thêm vào Device.java
     @OneToMany(mappedBy = "device", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
     private List<Geofence> geofences;
 
-    // Cache trạng thái geofence
     @Column(name = "geofence_status")
-    private String geofenceStatus; // "INSIDE", "OUTSIDE", "NO_GEOFENCE"
+    private String geofenceStatus;
 
     @Column(name = "last_violated_geofence_id")
     private Long lastViolatedGeofenceId;

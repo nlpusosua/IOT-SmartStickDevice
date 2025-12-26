@@ -1,24 +1,13 @@
-// FRONTEND/src/components/device/DeviceModal.jsx
 import React, { useState, useEffect } from 'react';
 import { X, Loader2 } from 'lucide-react';
 
-/**
- * Modal dùng chung cho Create và Edit Device
- * Props:
- * - isOpen: boolean - hiển thị modal
- * - onClose: function - đóng modal
- * - onSubmit: function - xử lý submit (create hoặc update)
- * - device: object | null - nếu có device thì là edit mode, null thì là create mode
- * - loading: boolean - trạng thái loading khi submit
- */
+
 const DeviceModal = ({ isOpen, onClose, onSubmit, device = null, loading = false }) => {
   const [formData, setFormData] = useState({
     name: '',
     deviceToken: ''
   });
   const [errors, setErrors] = useState({});
-
-  // Load dữ liệu device vào form khi edit
   useEffect(() => {
     if (device) {
       setFormData({
@@ -40,7 +29,6 @@ const DeviceModal = ({ isOpen, onClose, onSubmit, device = null, loading = false
       ...prev,
       [name]: value
     }));
-    // Xóa error khi user đang nhập
     if (errors[name]) {
       setErrors(prev => ({
         ...prev,

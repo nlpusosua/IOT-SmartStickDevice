@@ -11,7 +11,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class GeofenceAlertDTO {
     private String deviceToken;
-    private String alertType; // "GEOFENCE_BREACH", "GEOFENCE_RETURN"
+    private String alertType;
     private String geofenceName;
     private Double centerLat;
     private Double centerLng;

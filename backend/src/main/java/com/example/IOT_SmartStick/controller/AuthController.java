@@ -15,7 +15,7 @@ import jakarta.servlet.http.HttpServletRequest;
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost:3000")
+@CrossOrigin(origins = "*")
 public class AuthController {
     private final AuthService authService;
 
@@ -60,11 +60,6 @@ public class AuthController {
         }
     }
 
-    /**
-     * Endpoint mới: Refresh access token
-     * POST /api/v1/auth/refresh-token
-     * Body: { "refreshToken": "uuid-string" }
-     */
     @PostMapping("/refresh-token")
     public ResponseEntity<?> refreshToken(@Valid @RequestBody RefreshTokenRequest request) {
         try {

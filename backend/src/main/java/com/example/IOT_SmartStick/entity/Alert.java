@@ -35,15 +35,13 @@ public class Alert {
     @Builder.Default
     private Boolean isRead = false;
 
-    // Mối quan hệ: Nhiều Alert thuộc về một Device
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "device_id", nullable = false)
     private Device device;
 
-    // Mối quan hệ: Một Alert có thể được ghi nhận tại một Location cụ thể
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "location_id") // Có thể null
+    @JoinColumn(name = "location_id")
     private Location location;
-
 
 }

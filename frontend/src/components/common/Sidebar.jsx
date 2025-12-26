@@ -1,4 +1,3 @@
-// components/common/Sidebar.jsx
 import React from 'react';
 import { Plus, History } from 'lucide-react';
 import DeviceFilter from '../device/DeviceFilter';

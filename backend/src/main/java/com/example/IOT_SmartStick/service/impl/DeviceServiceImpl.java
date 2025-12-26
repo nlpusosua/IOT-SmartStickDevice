@@ -31,26 +31,21 @@ public class DeviceServiceImpl implements DeviceService {
     private final LocationRepository locationRepository;
 
     // ==================== USER METHODS ====================
-
     @Override
     @Transactional
     public DeviceResponseDTO claimDevice(ClaimDeviceRequest request, String token) {
-        // Lấy thông tin user từ token
         String email = jwtService.extractUsername(token);
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        // Tìm device theo token
         Device device = deviceRepository.findByDeviceToken(request.getDeviceToken())
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Không tìm thấy thiết bị với mã: " + request.getDeviceToken()));
 
-        // Kiểm tra device đã có chủ chưa
         if (device.getOwner() != null) {
             throw new IllegalStateException("Thiết bị này đã được kích hoạt bởi người dùng khác");
         }
 
-        // Gán owner và đặt tên
         device.setOwner(user);
         device.setName(request.getName());
 
@@ -72,21 +67,17 @@ public class DeviceServiceImpl implements DeviceService {
     @Override
     @Transactional
     public DeviceResponseDTO updateMyDevice(Long id, DeviceUpdateDTO updateDTO, String token) {
-        // Lấy thông tin user
         String email = jwtService.extractUsername(token);
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        // Tìm device
         Device device = deviceRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Device not found with id: " + id));
 
-        // Kiểm tra quyền sở hữu
         if (device.getOwner() == null || !device.getOwner().getId().equals(user.getId())) {
             throw new SecurityException("Bạn không có quyền chỉnh sửa thiết bị này");
         }
 
-        // Chỉ cho phép sửa tên
         if (updateDTO.getName() != null && !updateDTO.getName().isBlank()) {
             device.setName(updateDTO.getName());
         }
@@ -98,44 +89,37 @@ public class DeviceServiceImpl implements DeviceService {
     @Override
     @Transactional
     public void removeDeviceFromAccount(Long id, String token) {
-        // Lấy thông tin user
         String email = jwtService.extractUsername(token);
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        // Tìm device
         Device device = deviceRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Device not found with id: " + id));
 
-        // Kiểm tra quyền sở hữu
         if (device.getOwner() == null || !device.getOwner().getId().equals(user.getId())) {
             throw new SecurityException("Bạn không có quyền xóa thiết bị này");
         }
 
-        // Set owner = null (trả device về kho)
         device.setOwner(null);
-        device.setName("Unclaimed Device"); // Đặt lại tên mặc định
+        device.setName("Unclaimed Device");
         deviceRepository.save(device);
     }
-
     // ==================== ADMIN METHODS ====================
 
     @Override
     @Transactional
     public DeviceResponseDTO adminCreateDevice(AdminDeviceRequestDTO request) {
-        // Kiểm tra trùng token
         if (deviceRepository.existsByDeviceToken(request.getDeviceToken())) {
             throw new DuplicateResourceException("Token đã tồn tại: " + request.getDeviceToken());
         }
 
-        // Tạo thiết bị rỗng (chưa có chủ)
         Device device = Device.builder()
                 .deviceToken(request.getDeviceToken())
                 .name(request.getName() != null && !request.getName().isBlank()
                         ? request.getName()
-                        : "New Device") // Tên mặc định
-                .owner(null) // QUAN TRỌNG: Chưa có chủ
-                .status(DeviceStatus.OFFLINE) // Mặc định offline
+                        : "New Device")
+                .owner(null)
+                .status(DeviceStatus.OFFLINE)
                 .build();
 
         return convertToResponseDTO(deviceRepository.save(device));
@@ -143,7 +127,6 @@ public class DeviceServiceImpl implements DeviceService {
 
     @Override
     public List<DeviceResponseDTO> adminGetAllDevices() {
-        // Lấy tất cả thiết bị trong kho (kể cả đã có chủ hoặc chưa)
         return deviceRepository.findAll().stream()
                 .map(this::convertToResponseDTO)
                 .collect(Collectors.toList());
@@ -155,7 +138,6 @@ public class DeviceServiceImpl implements DeviceService {
         Device device = deviceRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Device not found with id: " + id));
 
-        // Update Token (nếu thay đổi thì phải check trùng)
         if (request.getDeviceToken() != null && !request.getDeviceToken().isBlank()) {
             if (!device.getDeviceToken().equals(request.getDeviceToken())
                     && deviceRepository.existsByDeviceToken(request.getDeviceToken())) {
@@ -164,11 +146,9 @@ public class DeviceServiceImpl implements DeviceService {
             device.setDeviceToken(request.getDeviceToken());
         }
 
-        // Update Name
         if (request.getName() != null && !request.getName().isBlank()) {
             device.setName(request.getName());
         }
-
         return convertToResponseDTO(deviceRepository.save(device));
     }
 
@@ -178,7 +158,6 @@ public class DeviceServiceImpl implements DeviceService {
         if (!deviceRepository.existsById(id)) {
             throw new ResourceNotFoundException("Device not found with id: " + id);
         }
-        // Xóa vĩnh viễn khỏi DB
         deviceRepository.deleteById(id);
     }
 
@@ -197,7 +176,6 @@ public class DeviceServiceImpl implements DeviceService {
         Integer ownerId = (device.getOwner() != null) ? device.getOwner().getId() : null;
         String ownerName = (device.getOwner() != null) ? device.getOwner().getFullName() : "Chưa kích hoạt";
 
-        // --- XÂY DỰNG LOCATION TỪ CACHE (MỚI) ---
         DeviceResponseDTO.LocationDTO location = null;
         if (device.getLastLatitude() != null && device.getLastLongitude() != null) {
             location = DeviceResponseDTO.LocationDTO.builder()
@@ -215,9 +193,9 @@ public class DeviceServiceImpl implements DeviceService {
                 .lastUpdate(device.getLastUpdate())
                 .ownerId(ownerId)
                 .ownerName(ownerName)
-                .location(location) // THÊM LOCATION
-                .sos(false) // TODO: Lấy từ bảng Alert
-                .geofence("INSIDE") // TODO: Tính toán từ Geofence
+                .location(location)
+                .sos(false)
+                .geofence("INSIDE")
                 .build();
     }
 }

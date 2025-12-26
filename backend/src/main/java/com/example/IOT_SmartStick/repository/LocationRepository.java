@@ -9,8 +9,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 public interface LocationRepository extends JpaRepository<Location, Long> {
-
-
     @Query(value = "SELECT * FROM locations " +
             "WHERE device_id = :deviceId " +
             "AND timestamp BETWEEN :startTime AND :endTime " +
@@ -21,8 +19,6 @@ public interface LocationRepository extends JpaRepository<Location, Long> {
             @Param("startTime") LocalDateTime startTime,
             @Param("endTime") LocalDateTime endTime
     );
-
-
     @Query(value = "SELECT * FROM locations WHERE device_id = :deviceId " +
             "ORDER BY timestamp DESC LIMIT :limit",
             nativeQuery = true)

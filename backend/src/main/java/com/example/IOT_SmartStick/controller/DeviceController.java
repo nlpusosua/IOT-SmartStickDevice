@@ -21,14 +21,12 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/device")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost:3000")
+@CrossOrigin(origins = "*")
 public class DeviceController {
     private final DeviceService deviceService;
     private final LocationHistoryService locationHistoryService;
     @Autowired
     private IngestService ingestService;
-
-    // ========== LOCATION ENDPOINT (Từ ESP32) ==========
 
     @PostMapping("/location")
     public ResponseEntity<String> receiveLocation(
@@ -43,13 +41,6 @@ public class DeviceController {
             return ResponseEntity.status(500).body("Internal server error: " + e.getMessage());
         }
     }
-
-    // ========== USER DEVICE ENDPOINTS ==========
-
-    /**
-     * User claim device bằng device token
-     * Body: { "deviceToken": "ABC123", "name": "Ông Nguyễn Văn A" }
-     */
     @PostMapping("/claim")
     public ResponseEntity<?> claimDevice(
             @Valid @RequestBody ClaimDeviceRequest request,
@@ -66,9 +57,7 @@ public class DeviceController {
         }
     }
 
-    /**
-     * Lấy danh sách device của user hiện tại
-     */
+
     @GetMapping("/my-devices")
     public ResponseEntity<?> getMyDevices(@RequestHeader("Authorization") String authHeader) {
         try {
@@ -80,9 +69,6 @@ public class DeviceController {
         }
     }
 
-    /**
-     * User cập nhật tên device của mình
-     */
     @PutMapping("/{id}")
     public ResponseEntity<?> updateMyDevice(
             @PathVariable Long id,
@@ -99,9 +85,6 @@ public class DeviceController {
         }
     }
 
-    /**
-     * User xóa device khỏi tài khoản (device quay về kho, owner = null)
-     */
     @DeleteMapping("/{id}")
     public ResponseEntity<?> removeDevice(
             @PathVariable Long id,
@@ -117,37 +100,33 @@ public class DeviceController {
         }
     }
 
-    /**
-     * Lấy thông tin chi tiết 1 device
-     */
     @GetMapping("/{id}")
     public ResponseEntity<DeviceResponseDTO> getDeviceById(@PathVariable Long id) {
         DeviceResponseDTO response = deviceService.getDeviceById(id);
         return ResponseEntity.ok(response);
     }
-    // lấy ra thông tin di chuyển
+
     @GetMapping("/{id}/history")
     public ResponseEntity<?> getDeviceHistory(
             @PathVariable Long id,
             @RequestParam(defaultValue = "24") int hours,
             @RequestHeader("Authorization") String authHeader) {
         try {
-            // Cắt chữ "Bearer " đi để lấy token
+
             String token = authHeader.startsWith("Bearer ") ? authHeader.substring(7) : authHeader;
 
-            // Gọi sang LocationHistoryServiceImpl của anh
             LocationHistoryDTO history = locationHistoryService.getDeviceRecentHistory(id, hours, token);
 
             return ResponseEntity.ok(history);
 
         } catch (SecurityException e) {
-            // Service ném SecurityException -> Trả về 403 Forbidden
+
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
         } catch (ResourceNotFoundException e) {
-            // Không tìm thấy device hoặc user -> Trả về 404
+
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         } catch (Exception e) {
-            // Lỗi khác -> 500
+
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Lỗi server: " + e.getMessage());
         }

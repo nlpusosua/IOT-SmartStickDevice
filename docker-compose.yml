@@ -6,7 +6,8 @@ services:
     image: mysql:8.0
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD:  # Đặt pass của bạn
+      MYSQL_ROOT_PASSWORD:  
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
       MYSQL_DATABASE: iot        # Tên DB của bạn
     ports:
       - "3307:3306" # Map ra 3307 để tránh đụng nếu server có cái khác
@@ -29,7 +30,7 @@ services:
       - mysqldb
       - redisdb
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysqldb:3306/mydatabase?useSSL=false
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysqldb:3306/iot?useSSL=false
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: 
       SPRING_REDIS_HOST: redisdb

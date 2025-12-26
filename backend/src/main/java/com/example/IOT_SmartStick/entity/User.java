@@ -54,6 +54,4 @@ public class User {
 
     @OneToMany(mappedBy = "owner")
     private List<Device> devices;
-
-    // ← XÓA phần @OneToMany(mappedBy = "user") với RefreshToken
 }

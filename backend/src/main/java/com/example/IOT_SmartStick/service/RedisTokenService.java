@@ -44,11 +44,7 @@ public class RedisTokenService {
             return Boolean.TRUE.equals(redisTemplate.hasKey(key));
         } catch (RedisConnectionFailureException e) {
             log.error("Redis connection failed while checking blacklist", e);
-            // QUAN TRỌNG: Nếu Redis down, có thể chọn:
-            // Option 1: Return false (cho phép request đi tiếp)
-            // Option 2: Return true (từ chối tất cả request - an toàn hơn)
-            // Option 3: Throw exception
-            return false; // Chọn option 1 để service không bị gián đoạn
+            return false;
         } catch (Exception e) {
             log.error("Error checking blacklist", e);
             return false;

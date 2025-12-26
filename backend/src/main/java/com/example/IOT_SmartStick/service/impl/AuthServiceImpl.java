@@ -44,7 +44,7 @@ public class AuthServiceImpl implements AuthService {
     private final UserDetailsService userDetailsService;
     private final VerificationTokenRepository tokenRepository;
     private final EmailService emailService;
-    private final RedisTokenService redisTokenService;  // ← THÊM
+    private final RedisTokenService redisTokenService;
     private final RefreshTokenService refreshTokenService;
 
     @Override
@@ -102,7 +102,6 @@ public class AuthServiceImpl implements AuthService {
         final User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // Kiểm tra nếu bị BAN thì không cho đăng nhập
         if (user.getStatus() == UserStatus.BANNED) {
             throw new DisabledException("Tài khoản của bạn đã bị khóa bởi Admin.");
         }
@@ -116,7 +115,7 @@ public class AuthServiceImpl implements AuthService {
                 .tokenType("Bearer")
                 .expiresIn(jwtService.getAccessTokenExpiration())
                 .message("Login successful")
-                .role(user.getRole()) // <--- TRẢ VỀ ROLE
+                .role(user.getRole())
                 .build();
     }
 
@@ -150,17 +149,13 @@ public class AuthServiceImpl implements AuthService {
 
         final String accessToken = authHeader.substring(7);
 
-        // Tính thời gian hết hạn còn lại của access token
         Claims claims = jwtService.extractClaim(accessToken, c -> c);
         Date expiration = claims.getExpiration();
         long expirationSeconds = (expiration.getTime() - System.currentTimeMillis()) / 1000;
 
         if (expirationSeconds > 0) {
-            // Thêm vào blacklist trong Redis
             redisTokenService.addToBlacklist(accessToken, expirationSeconds);  // ← THAY ĐỔI
         }
-
-        // Revoke refresh token
         String userEmail = jwtService.extractUsername(accessToken);
         User user = userRepository.findByEmail(userEmail).orElse(null);
         if (user != null) {
@@ -173,14 +168,11 @@ public class AuthServiceImpl implements AuthService {
     public AuthResponse refreshToken(RefreshTokenRequest request) {
         String refreshTokenString = request.getRefreshToken();
 
-        // Verify refresh token và lấy userId
         Integer userId = refreshTokenService.verifyRefreshToken(refreshTokenString);  // ← THAY ĐỔI
 
-        // Lấy user từ DB
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
-        // Tạo access token mới
         UserDetails userDetails = userDetailsService.loadUserByUsername(user.getEmail());
         String newAccessToken = jwtService.generateToken(userDetails);
 

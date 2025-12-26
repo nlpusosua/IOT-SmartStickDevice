@@ -9,10 +9,7 @@ import jakarta.servlet.http.HttpServletRequest;
 public interface AuthService {
     AuthResponse signUp(SignUpRequest request);
     AuthResponse login(LoginRequest request);
-
     void verifyAccount(String token);
     void logout(HttpServletRequest request);
-
     AuthResponse refreshToken(RefreshTokenRequest request);
-
 }

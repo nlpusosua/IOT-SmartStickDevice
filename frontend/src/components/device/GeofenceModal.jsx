@@ -22,7 +22,6 @@ const GeofenceModal = ({
 
   useEffect(() => {
     if (geofence) {
-      // Edit mode
       setFormData({
         name: geofence.name || "",
         centerLatitude: geofence.centerLatitude || "",
@@ -31,7 +30,6 @@ const GeofenceModal = ({
         active: geofence.active !== undefined ? geofence.active : true,
       });
     } else if (device && device.location) {
-      // Create mode - mặc định lấy vị trí hiện tại của device
       setFormData({
         name: `Vùng an toàn ${device.name}`,
         centerLatitude: device.location.lat,
