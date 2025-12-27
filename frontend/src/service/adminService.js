@@ -43,3 +43,6 @@ export const getUserGrowthStats = () => {
 export const getDeviceStatusStats = () => {
     return axios.get('/api/admin/stats/device-status');
 };
+export const deleteUserAdmin = (userId) => {
+    return axios.delete(`/api/admin/users/${userId}`);
+};

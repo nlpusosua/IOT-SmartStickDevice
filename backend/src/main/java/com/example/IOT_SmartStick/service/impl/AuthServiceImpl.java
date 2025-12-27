@@ -13,7 +13,7 @@ import com.example.IOT_SmartStick.repository.VerificationTokenRepository;
 import com.example.IOT_SmartStick.service.AuthService;
 import com.example.IOT_SmartStick.service.EmailService;
 import com.example.IOT_SmartStick.service.JwtService;
-import com.example.IOT_SmartStick.service.RedisTokenService;  // ← THÊM
+import com.example.IOT_SmartStick.service.RedisTokenService;
 import com.example.IOT_SmartStick.service.RefreshTokenService;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.HttpServletRequest;
@@ -31,6 +31,8 @@ import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -62,7 +64,6 @@ public class AuthServiceImpl implements AuthService {
                 .role(UserRole.CAREGIVER)
                 .status(UserStatus.PENDING_VERIFICATION)
                 .build();
-
         User savedUser = userRepository.save(user);
 
         String token = UUID.randomUUID().toString();
@@ -106,7 +107,12 @@ public class AuthServiceImpl implements AuthService {
             throw new DisabledException("Tài khoản của bạn đã bị khóa bởi Admin.");
         }
 
-        final String accessToken = jwtService.generateToken(userDetails);
+        // --- FIX: Thêm userId và role vào claims của Token ---
+        Map<String, Object> extraClaims = new HashMap<>();
+        extraClaims.put("userId", user.getId());
+        extraClaims.put("role", user.getRole());
+
+        final String accessToken = jwtService.generateToken(extraClaims, userDetails);
         String refreshToken = refreshTokenService.createRefreshToken(user);
 
         return AuthResponse.builder()
@@ -142,7 +148,6 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public void logout(HttpServletRequest request) {
         final String authHeader = request.getHeader("Authorization");
-
         if (!StringUtils.hasText(authHeader) || !authHeader.startsWith("Bearer ")) {
             return;
         }
@@ -154,7 +159,7 @@ public class AuthServiceImpl implements AuthService {
         long expirationSeconds = (expiration.getTime() - System.currentTimeMillis()) / 1000;
 
         if (expirationSeconds > 0) {
-            redisTokenService.addToBlacklist(accessToken, expirationSeconds);  // ← THAY ĐỔI
+            redisTokenService.addToBlacklist(accessToken, expirationSeconds);
         }
         String userEmail = jwtService.extractUsername(accessToken);
         User user = userRepository.findByEmail(userEmail).orElse(null);
@@ -167,14 +172,19 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public AuthResponse refreshToken(RefreshTokenRequest request) {
         String refreshTokenString = request.getRefreshToken();
-
-        Integer userId = refreshTokenService.verifyRefreshToken(refreshTokenString);  // ← THAY ĐỔI
+        Integer userId = refreshTokenService.verifyRefreshToken(refreshTokenString);
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
         UserDetails userDetails = userDetailsService.loadUserByUsername(user.getEmail());
-        String newAccessToken = jwtService.generateToken(userDetails);
+
+        // --- FIX: Thêm userId và role vào claims của Token mới ---
+        Map<String, Object> extraClaims = new HashMap<>();
+        extraClaims.put("userId", user.getId());
+        extraClaims.put("role", user.getRole());
+
+        String newAccessToken = jwtService.generateToken(extraClaims, userDetails);
 
         return AuthResponse.builder()
                 .accessToken(newAccessToken)

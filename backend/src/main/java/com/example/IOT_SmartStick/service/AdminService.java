@@ -12,4 +12,5 @@ public interface AdminService {
     DashboardStatsDTO getDashboardStats();
     List<ChartDataDTO> getUserGrowthStats();
     List<ChartDataDTO> getDeviceStatusStats();
+    void deleteUser(Integer userId);
 }

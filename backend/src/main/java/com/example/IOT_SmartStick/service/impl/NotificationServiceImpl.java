@@ -6,6 +6,7 @@ import com.example.IOT_SmartStick.entity.Device;
 import com.example.IOT_SmartStick.entity.Location;
 import com.example.IOT_SmartStick.entity.User;
 import com.example.IOT_SmartStick.service.AlertService;
+import com.example.IOT_SmartStick.service.EmailService;
 import com.example.IOT_SmartStick.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,6 +20,7 @@ import java.time.LocalDateTime;
 public class NotificationServiceImpl implements NotificationService {
 
     private final AlertService alertService;
+    private final EmailService emailService; // Inject EmailService
 
     @Override
     public void sendSOSAlert(Device device, Location location) {
@@ -38,6 +40,8 @@ public class NotificationServiceImpl implements NotificationService {
         Location location = new Location();
         location.setLatitude(lat);
         location.setLongitude(lng);
+        // Lưu ý: Timestamp cho location ảo này lấy thời gian hiện tại
+        location.setTimestamp(LocalDateTime.now());
 
         AlertType alertType;
         if ("GEOFENCE_BREACH".equals(typeStr)) {
@@ -59,29 +63,33 @@ public class NotificationServiceImpl implements NotificationService {
                 return;
             }
 
+            // 1. Tạo Alert và lưu vào DB + Gửi WebSocket (thông qua AlertService)
             Alert alert = new Alert();
             alert.setDevice(device);
-
             alert.setAlertType(alertType);
             alert.setMessage(message);
             alert.setTimestamp(LocalDateTime.now());
             alert.setIsRead(false);
 
-            if (location != null && location.getId() != null) {
-                alert.setLocation(location);
-            }
-
+            // Xử lý logic gán location cho Alert
             if (alertType == AlertType.GEOFENCE_BREACH || alertType == AlertType.GEOFENCE_RETURN) {
+                // Geofence alert thường dùng tọa độ tâm vùng hoặc tọa độ thiết bị tại thời điểm đó
+                // Ở đây logic cũ của bạn set null, tôi giữ nguyên logic DB nhưng khi gửi mail sẽ dùng tham số location truyền vào
                 alert.setLocation(null);
             } else {
                 alert.setLocation(location);
             }
 
             alertService.createAlert(alert);
-
             log.info("📢 Alert created and sent via WebSocket: [{}] {}", alertType, message);
+
+            // 2. Gửi Email Cảnh báo (Tính năng mới)
+            // Gửi bất kể loại alert nào trong danh sách (SOS, LOST, GEOFENCE)
+            log.info("📧 Sending alert email to user: {}", user.getEmail());
+            emailService.sendAlertEmail(user, device, location, alertType, message);
+
         } catch (Exception e) {
-            log.error("Failed to create alert", e);
+            log.error("Failed to create alert or send email", e);
         }
     }
 }
