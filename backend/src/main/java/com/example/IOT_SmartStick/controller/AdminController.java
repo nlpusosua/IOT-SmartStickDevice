@@ -37,7 +37,11 @@ public class AdminController {
         adminService.unbanUser(id);
         return ResponseEntity.ok().build();
     }
-
+    @DeleteMapping("/users/{id}")
+    public ResponseEntity<Void> deleteUser(@PathVariable Integer id) {
+        adminService.deleteUser(id);
+        return ResponseEntity.noContent().build(); // Trả về 204 No Content
+    }
     // --- Statistics ---
     @GetMapping("/stats")
     public ResponseEntity<DashboardStatsDTO> getStats() {

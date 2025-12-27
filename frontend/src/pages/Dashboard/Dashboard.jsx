@@ -15,6 +15,7 @@ import GeofenceModal from "../../components/device/GeofenceModal";
 import GeofencePanel from "../../components/device/GeofencePanel";
 import SOSPopup from "../../components/notification/SOSPopup";
 import { createGeofence, updateGeofence } from "../../service/geofenceService";
+import { WS_URL } from "../../config/constants";
 
 const SmartCaneDashboard = () => {
   const [devices, setDevices] = useState([]);
@@ -34,7 +35,7 @@ const SmartCaneDashboard = () => {
   const [routePath, setRoutePath] = useState([]);
   
   // PANEL STATES
-  const [activePanel, setActivePanel] = useState(null); // 'history' | 'geofence' | null
+  const [activePanel, setActivePanel] = useState(null); 
   const [historyDevice, setHistoryDevice] = useState(null);
   const [historyPath, setHistoryPath] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -68,7 +69,6 @@ const SmartCaneDashboard = () => {
     setRoutePath([]);
   };
 
-  // --- HÀM XỬ LÝ KHI CLICK HEADER (MỚI) ---
   const handleHeaderInteraction = () => {
       if (activePanel) {
           resetAllPanels();
@@ -80,7 +80,8 @@ const SmartCaneDashboard = () => {
     if (!token) return null;
     try {
       const payload = JSON.parse(atob(token.split('.')[1]));
-      return payload.userId || payload.sub;
+      // Sau khi sửa Backend, payload.userId sẽ tồn tại
+      return payload.userId || payload.sub; 
     } catch (e) {
       console.error('Error decoding token:', e);
       return null;
@@ -90,38 +91,53 @@ const SmartCaneDashboard = () => {
   // WebSocket Connection
   useEffect(() => {
     const userId = getUserId();
+    
+    // Log để kiểm tra xem đã lấy đúng ID số chưa (Ví dụ: 1, 2...) thay vì email
+    console.log("🔗 Connecting WebSocket for User ID:", userId);
+
     if (!userId) {
       console.warn('No userId found, skipping WebSocket connection');
       return;
     }
 
-    const socket = new SockJS('http://35.186.148.135:8080/ws');
+    // Đảm bảo URL này đúng với môi trường (Localhost hoặc IP Server)
+    const socket = new SockJS('http://localhost:8080/ws');
     const client = Stomp.over(socket);
     
+    // Tắt debug log của STOMP nếu quá ồn
+    // client.debug = () => {}; 
+
     client.connect({}, () => {
-      console.log('✅ WebSocket connected for user:', userId);
+      console.log('✅ WebSocket connected successfully for user:', userId);
       
+      // Subscribe đúng kênh mà backend gửi: /topic/user/{userId}/alerts
       client.subscribe(`/topic/user/${userId}/alerts`, (message) => {
         const alert = JSON.parse(message.body);
-        console.log('📢 New alert received:', alert);
+        console.log('📢 Real-time Alert Received:', alert);
         
         // Cập nhật State notification ngay lập tức
         setNotifications(prev => [alert, ...prev]);
         
+        // Xử lý logic Popup và âm thanh
         if (alert.alertType === 'SOS' || alert.alertType === 'LOST') {
           setSOSPopup(alert);
           try {
             const audio = new Audio('/alert-sound.mp3');
-            audio.play().catch(e => console.log('Cannot play sound:', e));
+            audio.play().catch(e => console.log('Cannot play sound (user interaction needed):', e));
           } catch (e) {
             console.log('Audio not available');
           }
         } else {
-          toast.warning(alert.message, { autoClose: 5000 });
+            // Toast thông báo cho Geofence
+            toast.warning(alert.message, { 
+                autoClose: 5000,
+                onClick: () => handleLocateAlert(alert)
+            });
         }
       });
     }, (error) => {
       console.error('❌ WebSocket connection error:', error);
+      // Có thể thêm logic reconnect sau 5s ở đây nếu cần
     });
     
     setStompClient(client);
@@ -129,9 +145,10 @@ const SmartCaneDashboard = () => {
     return () => {
       if (client && client.connected) {
         client.disconnect();
+        console.log('🔌 WebSocket disconnected');
       }
     };
-  }, []);
+  }, []); // Empty dependency array -> chỉ chạy 1 lần khi mount
 
   useEffect(() => {
     const fetchNotifications = async () => {
@@ -202,6 +219,7 @@ const SmartCaneDashboard = () => {
 
   useEffect(() => {
     fetchDevices(false);
+    // Polling thiết bị mỗi 3 giây để cập nhật vị trí realtime
     const intervalId = setInterval(() => {
       fetchDevices(true);
     }, 3000);
@@ -214,6 +232,7 @@ const SmartCaneDashboard = () => {
         () => console.warn("Không thể lấy vị trí người dùng")
       );
     }
+    
     return () => clearInterval(intervalId);
   }, []);
 
@@ -404,7 +423,7 @@ const SmartCaneDashboard = () => {
         notifications={notifications}
         onRefreshNotifications={handleRefreshNotifications}
         onNotificationClick={handleNotificationClick}
-        onHeaderInteraction={handleHeaderInteraction} // <-- TRUYỀN HÀM XUỐNG
+        onHeaderInteraction={handleHeaderInteraction}
       />
       
       <div className="flex flex-1 overflow-hidden relative">

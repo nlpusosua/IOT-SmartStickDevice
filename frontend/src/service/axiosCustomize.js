@@ -2,7 +2,8 @@ import axios from "axios";
 import { refreshTokenAPI } from "./authService";
 
 const instance = axios.create({
-  baseURL: "http://35.186.148.135:8080",
+  // baseURL: "http://35.186.145.70:8080",
+  baseURL: "http://localhost:8080",
 });
 
 // Biến để theo dõi có đang refresh token không (tránh gọi nhiều lần)
