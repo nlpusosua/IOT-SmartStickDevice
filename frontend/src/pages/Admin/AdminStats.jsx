@@ -10,7 +10,6 @@ import {
     PieChart, Pie, Cell, Legend
 } from 'recharts';
 
-// Component thẻ thống kê nhỏ (giữ nguyên)
 const StatCard = ({ title, value, icon: Icon, color }) => (
   <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
     <div className="flex items-center justify-between">
@@ -31,31 +30,39 @@ const AdminStats = () => {
   const [deviceChartData, setDeviceChartData] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Màu cho biểu đồ tròn (Pie Chart)
+  // Màu cho biểu đồ tròn
   const COLORS = ['#10b981', '#9ca3af']; // Xanh (Online), Xám (Offline)
 
-  useEffect(() => {
-    fetchAllData();
-  }, []);
-
-  const fetchAllData = async () => {
+  const fetchAllData = async (isBackground = false) => {
+    if (!isBackground) setLoading(true);
     try {
-        // Gọi song song 3 API để tiết kiệm thời gian
         const [generalStats, userGrowth, deviceStatus] = await Promise.all([
             getAdminStats(),
             getUserGrowthStats(),
             getDeviceStatusStats()
         ]);
-
         setStats(generalStats);
         setUserChartData(userGrowth);
         setDeviceChartData(deviceStatus);
     } catch (error) {
       console.error("Error fetching admin stats:", error);
     } finally {
-      setLoading(false);
+      if (!isBackground) setLoading(false);
     }
   };
+
+  useEffect(() => {
+    // Lần đầu tải dữ liệu (có loading spinner)
+    fetchAllData(false);
+
+    // Thiết lập Polling: Tự động cập nhật mỗi 5 giây
+    const intervalId = setInterval(() => {
+        fetchAllData(true); // true = chạy background, không hiện loading spinner lại
+    }, 5000);
+
+    // Dọn dẹp khi component unmount
+    return () => clearInterval(intervalId);
+  }, []);
 
   if (loading) return (
     <div className="flex h-96 items-center justify-center">
@@ -98,7 +105,7 @@ const AdminStats = () => {
       {/* 2. Khu vực Biểu đồ */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
          
-         {/* Biểu đồ 1: Tăng trưởng người dùng (Area Chart) - Chiếm 2 phần */}
+         {/* Biểu đồ 1: Tăng trưởng người dùng */}
          <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-gray-200">
             <h3 className="text-lg font-bold text-gray-700 mb-4">Người dùng mới (6 tháng qua)</h3>
             <div className="h-72 w-full">
@@ -127,7 +134,7 @@ const AdminStats = () => {
             </div>
          </div>
 
-         {/* Biểu đồ 2: Trạng thái thiết bị (Pie Chart) - Chiếm 1 phần */}
+         {/* Biểu đồ 2: Trạng thái thiết bị */}
          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
             <h3 className="text-lg font-bold text-gray-700 mb-4">Trạng thái thiết bị</h3>
             <div className="h-72 w-full flex items-center justify-center">

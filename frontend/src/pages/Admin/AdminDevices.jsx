@@ -15,24 +15,30 @@ const AdminDevices = () => {
   const [newName, setNewName] = useState('');
   const [creating, setCreating] = useState(false);
 
-  useEffect(() => {
-    fetchDevices();
-  }, []);
-
-  const fetchDevices = async () => {
-    setLoading(true);
+  const fetchDevices = async (isBackground = false) => {
+    if (!isBackground) setLoading(true);
     try {
       const data = await getAllDevicesAdmin();
       setDevices(data);
     } catch (error) {
-      toast.error('Lỗi tải danh sách thiết bị');
+      if (!isBackground) toast.error('Lỗi tải danh sách thiết bị');
     } finally {
-      setLoading(false);
+      if (!isBackground) setLoading(false);
     }
   };
 
+  useEffect(() => {
+    fetchDevices(false);
+
+    // Polling: Tự động tải lại danh sách mỗi 5 giây
+    const intervalId = setInterval(() => {
+        fetchDevices(true);
+    }, 5000);
+
+    return () => clearInterval(intervalId);
+  }, []);
+
   const generateToken = () => {
-    // Generate simple ID: IOT-XXXX-XXXX
     const randomPart = Math.random().toString(36).substring(2, 6).toUpperCase() + '-' + 
                        Math.random().toString(36).substring(2, 6).toUpperCase();
     setNewToken(`IOT-${randomPart}`);
@@ -41,7 +47,6 @@ const AdminDevices = () => {
   const handleCreate = async (e) => {
     e.preventDefault();
     if (!newToken) return toast.warning('Vui lòng nhập Token');
-    
     setCreating(true);
     try {
         await createDeviceAdmin({ deviceToken: newToken, name: newName });
@@ -49,7 +54,7 @@ const AdminDevices = () => {
         setShowModal(false);
         setNewToken('');
         setNewName('');
-        fetchDevices();
+        fetchDevices(false);
     } catch (error) {
         toast.error(error.response?.data?.message || 'Lỗi khi tạo thiết bị');
     } finally {
@@ -73,7 +78,7 @@ const AdminDevices = () => {
     try {
         await deleteDeviceAdmin(id);
         toast.success('Đã xóa thiết bị');
-        fetchDevices();
+        fetchDevices(false);
     } catch (error) {
         toast.error('Lỗi khi xóa thiết bị');
     }

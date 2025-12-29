@@ -15,7 +15,9 @@ import GeofenceModal from "../../components/device/GeofenceModal";
 import GeofencePanel from "../../components/device/GeofencePanel";
 import SOSPopup from "../../components/notification/SOSPopup";
 import { createGeofence, updateGeofence } from "../../service/geofenceService";
-import { WS_URL } from "../../config/constants";
+
+// Nếu bạn đã có file constants thì import, nếu không thì hardcode như bên dưới cũng được
+// import { WS_URL } from "../../constants"; 
 
 const SmartCaneDashboard = () => {
   const [devices, setDevices] = useState([]);
@@ -80,7 +82,6 @@ const SmartCaneDashboard = () => {
     if (!token) return null;
     try {
       const payload = JSON.parse(atob(token.split('.')[1]));
-      // Sau khi sửa Backend, payload.userId sẽ tồn tại
       return payload.userId || payload.sub; 
     } catch (e) {
       console.error('Error decoding token:', e);
@@ -92,43 +93,34 @@ const SmartCaneDashboard = () => {
   useEffect(() => {
     const userId = getUserId();
     
-    // Log để kiểm tra xem đã lấy đúng ID số chưa (Ví dụ: 1, 2...) thay vì email
-    console.log("🔗 Connecting WebSocket for User ID:", userId);
-
     if (!userId) {
-      console.warn('No userId found, skipping WebSocket connection');
       return;
     }
 
-    // Đảm bảo URL này đúng với môi trường (Localhost hoặc IP Server)
     const socket = new SockJS('http://localhost:8080/ws');
     const client = Stomp.over(socket);
     
-    // Tắt debug log của STOMP nếu quá ồn
-    // client.debug = () => {}; 
+    // Tắt log debug rác
+    client.debug = () => {}; 
 
     client.connect({}, () => {
       console.log('✅ WebSocket connected successfully for user:', userId);
       
-      // Subscribe đúng kênh mà backend gửi: /topic/user/{userId}/alerts
       client.subscribe(`/topic/user/${userId}/alerts`, (message) => {
         const alert = JSON.parse(message.body);
         console.log('📢 Real-time Alert Received:', alert);
         
-        // Cập nhật State notification ngay lập tức
         setNotifications(prev => [alert, ...prev]);
         
-        // Xử lý logic Popup và âm thanh
         if (alert.alertType === 'SOS' || alert.alertType === 'LOST') {
           setSOSPopup(alert);
           try {
             const audio = new Audio('/alert-sound.mp3');
-            audio.play().catch(e => console.log('Cannot play sound (user interaction needed):', e));
+            audio.play().catch(e => console.log('Cannot play sound:', e));
           } catch (e) {
             console.log('Audio not available');
           }
         } else {
-            // Toast thông báo cho Geofence
             toast.warning(alert.message, { 
                 autoClose: 5000,
                 onClick: () => handleLocateAlert(alert)
@@ -136,8 +128,7 @@ const SmartCaneDashboard = () => {
         }
       });
     }, (error) => {
-      console.error('❌ WebSocket connection error:', error);
-      // Có thể thêm logic reconnect sau 5s ở đây nếu cần
+      // console.error('WebSocket error:', error);
     });
     
     setStompClient(client);
@@ -145,10 +136,9 @@ const SmartCaneDashboard = () => {
     return () => {
       if (client && client.connected) {
         client.disconnect();
-        console.log('🔌 WebSocket disconnected');
       }
     };
-  }, []); // Empty dependency array -> chỉ chạy 1 lần khi mount
+  }, []);
 
   useEffect(() => {
     const fetchNotifications = async () => {
@@ -219,7 +209,7 @@ const SmartCaneDashboard = () => {
 
   useEffect(() => {
     fetchDevices(false);
-    // Polling thiết bị mỗi 3 giây để cập nhật vị trí realtime
+    // Polling 3s/lần
     const intervalId = setInterval(() => {
       fetchDevices(true);
     }, 3000);
@@ -415,6 +405,16 @@ const SmartCaneDashboard = () => {
     handleRefreshData();
   };
 
+  // --- LOGIC QUAN TRỌNG: TÌM THIẾT BỊ "LIVE" TRONG DANH SÁCH ---
+  // Điều này đảm bảo khi danh sách devices được cập nhật, Panel cũng cập nhật theo
+  const liveHistoryDevice = historyDevice 
+    ? devices.find(d => d.id === historyDevice.id) || historyDevice 
+    : null;
+
+  const liveGeofenceDevice = geofenceDevice
+    ? devices.find(d => d.id === geofenceDevice.id) || geofenceDevice
+    : null;
+
   return (
     <div className="flex flex-col h-screen bg-gray-50 font-sans">
       <Header
@@ -479,18 +479,18 @@ const SmartCaneDashboard = () => {
           )}
         </main>
 
-        {activePanel === 'history' && historyDevice && (
+        {activePanel === 'history' && liveHistoryDevice && (
           <HistoryPanel
-            device={historyDevice}
+            device={liveHistoryDevice} // SỬ DỤNG LIVE DEVICE
             onClose={handleCloseHistory}
             onLoadHistory={handleLoadHistory}
             isLoading={loadingHistory}
           />
         )}
 
-        {activePanel === 'geofence' && geofenceDevice && (
+        {activePanel === 'geofence' && liveGeofenceDevice && (
           <GeofencePanel
-            device={geofenceDevice}
+            device={liveGeofenceDevice} // SỬ DỤNG LIVE DEVICE
             onClose={() => {
                 setActivePanel(null);
                 setGeofenceDevice(null);
