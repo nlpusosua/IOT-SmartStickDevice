@@ -28,6 +28,7 @@ public class IngestServiceImpl implements IngestService {
     private final LocationRepository locationRepository;
     private final GeofenceRepository geofenceRepository;
     private final NotificationService notificationService;
+
     @Override
     @Transactional
     public void ingestDeviceData(String authHeader, IngestLocationRequest payload) {
@@ -60,14 +61,16 @@ public class IngestServiceImpl implements IngestService {
                 .longitude(longitude)
                 .timestamp(timestamp)
                 .build();
+
         Location savedLocation = locationRepository.save(newLocation);
 
         checkGeofenceViolation(device, latitude, longitude);
 
+        // --- CẬP NHẬT TRẠNG THÁI ONLINE ---
         device.setLastLatitude(latitude);
         device.setLastLongitude(longitude);
-        device.setLastSeen(LocalDateTime.now());
-        device.setStatus(DeviceStatus.ONLINE);
+        device.setLastSeen(LocalDateTime.now()); // Cập nhật thời gian mới nhất
+        device.setStatus(DeviceStatus.ONLINE);   // Set cứng trạng thái ONLINE khi có dữ liệu
         deviceRepository.save(device);
 
         if (payload.getStatus() != null) {
@@ -85,7 +88,6 @@ public class IngestServiceImpl implements IngestService {
 
     private void checkGeofenceViolation(Device device, Double latitude, Double longitude) {
         List<Geofence> activeGeofences = geofenceRepository.findByDeviceIdAndActiveTrue(device.getId());
-
         if (activeGeofences.isEmpty()) {
             device.setGeofenceStatus("NO_GEOFENCE");
             return;
@@ -116,7 +118,7 @@ public class IngestServiceImpl implements IngestService {
                         violatedGeofence.getName(),
                         violatedGeofence.getCenterLatitude().doubleValue(),
                         violatedGeofence.getCenterLongitude().doubleValue(),
-                        Double.valueOf(violatedGeofence.getRadiusMeters()) // Đảm bảo truyền Double
+                        Double.valueOf(violatedGeofence.getRadiusMeters())
                 );
             } else if ("INSIDE".equals(newStatus)) {
                 Geofence currentZone = activeGeofences.get(0);

@@ -16,6 +16,8 @@ import com.example.IOT_SmartStick.service.DeviceService;
 import com.example.IOT_SmartStick.service.JwtService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -24,11 +26,29 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class DeviceServiceImpl implements DeviceService {
     private final DeviceRepository deviceRepository;
     private final UserRepository userRepository;
     private final JwtService jwtService;
     private final LocationRepository locationRepository;
+
+    // --- MỚI: TỰ ĐỘNG CHECK OFFLINE ---
+    // Chạy mỗi 60 giây (60000ms) một lần
+    @Scheduled(fixedRate = 60000)
+    @Transactional
+    public void checkDeviceStatus() {
+        // Ngưỡng thời gian: Hiện tại trừ đi 2 phút
+        LocalDateTime threshold = LocalDateTime.now().minusMinutes(2);
+
+        // Cập nhật tất cả device đang ONLINE mà lastSeen < threshold thành OFFLINE
+        int updatedCount = deviceRepository.markDevicesOffline(threshold);
+
+        if (updatedCount > 0) {
+            log.info("Đã chuyển {} thiết bị sang trạng thái OFFLINE do không gửi dữ liệu quá 2 phút.", updatedCount);
+        }
+    }
+    // ----------------------------------
 
     // ==================== USER METHODS ====================
     @Override
@@ -48,6 +68,8 @@ public class DeviceServiceImpl implements DeviceService {
 
         device.setOwner(user);
         device.setName(request.getName());
+        // Khi mới claim, set online/offline tùy thuộc lastSeen, tạm để offline cho chắc
+        device.setStatus(DeviceStatus.OFFLINE);
 
         Device savedDevice = deviceRepository.save(device);
         return convertToResponseDTO(savedDevice);
@@ -102,8 +124,10 @@ public class DeviceServiceImpl implements DeviceService {
 
         device.setOwner(null);
         device.setName("Unclaimed Device");
+        device.setStatus(DeviceStatus.OFFLINE); // Reset về Offline khi xóa
         deviceRepository.save(device);
     }
+
     // ==================== ADMIN METHODS ====================
 
     @Override
@@ -195,7 +219,7 @@ public class DeviceServiceImpl implements DeviceService {
                 .ownerName(ownerName)
                 .location(location)
                 .sos(false)
-                .geofence("INSIDE")
+                .geofence(device.getGeofenceStatus() != null ? device.getGeofenceStatus() : "INSIDE") // Sửa lại logic geofence cho chuẩn
                 .build();
     }
 }
