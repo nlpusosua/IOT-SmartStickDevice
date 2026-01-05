@@ -2,11 +2,11 @@ package com.example.IOT_SmartStick.config;
 
 import com.example.IOT_SmartStick.config.security.JwtAuthFilter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
-import org.springframework.boot.web.servlet.FilterRegistrationBean;
-import org.springframework.web.filter.CorsFilter;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -14,40 +14,38 @@ import org.springframework.security.config.annotation.authentication.configurati
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-
-
-import java.util.List;
+import org.springframework.web.filter.CorsFilter;
 
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
+
     private final JwtAuthFilter jwtAuthFilter;
     private final UserDetailsService userDetailsService;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                .cors(AbstractHttpConfigurer::disable)
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
+                        // Cho phép OPTIONS đi qua
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        // API Public
                         .requestMatchers("/api/v1/auth/**").permitAll()
-                        .requestMatchers("/api/device/location").permitAll()
-                        .requestMatchers("/api/device/**").authenticated()
-                        .requestMatchers("/api/geofence/**").authenticated()
-                        .requestMatchers("/api/alerts/**").authenticated()
                         .requestMatchers("/ws/**").permitAll()
-                        .requestMatchers("/api/admin/**").hasAuthority("ADMIN")
+                        .requestMatchers("/api/device/location").permitAll()
+                        // API cần Auth
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -57,28 +55,24 @@ public class SecurityConfig {
         return http.build();
     }
 
-    // --- ĐÂY LÀ "VŨ KHÍ HẠT NHÂN" TRỊ CORS ---
+    // --- BỘ LỌC CỨU CÁNH: Chạy trước Spring Security ---
     @Bean
     public FilterRegistrationBean<CorsFilter> corsFilter() {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         CorsConfiguration config = new CorsConfiguration();
 
         config.setAllowCredentials(true);
-
-        config.setAllowedOriginPatterns(List.of("*"));
-
-        config.setAllowedHeaders(List.of("*"));
-
-        config.setAllowedMethods(List.of("*"));
+        config.addAllowedOriginPattern("*"); // Chấp nhận tất cả
+        config.addAllowedHeader("*");
+        config.addAllowedMethod("*");
 
         source.registerCorsConfiguration("/**", config);
 
         FilterRegistrationBean<CorsFilter> bean = new FilterRegistrationBean<>(new CorsFilter(source));
-
+        // Đặt độ ưu tiên CAO NHẤT (QUAN TRỌNG)
         bean.setOrder(Ordered.HIGHEST_PRECEDENCE);
         return bean;
     }
-    // ------------------------------------------
 
     @Bean
     public PasswordEncoder passwordEncoder() {

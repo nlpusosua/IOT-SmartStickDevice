@@ -48,13 +48,20 @@ public class IngestServiceImpl implements IngestService {
         Double latitude = payload.getGps().getLatitude().doubleValue();
         Double longitude = payload.getGps().getLongitude().doubleValue();
 
+        // 1. Xử lý Timestamp chính xác từ thiết bị
         LocalDateTime timestamp;
         try {
-            timestamp = LocalDateTime.parse(payload.getTimestamp(), DateTimeFormatter.ISO_DATE_TIME);
+            if (payload.getTimestamp() != null) {
+                timestamp = LocalDateTime.parse(payload.getTimestamp(), DateTimeFormatter.ISO_DATE_TIME);
+            } else {
+                timestamp = LocalDateTime.now();
+            }
         } catch (Exception e) {
+            log.warn("Invalid timestamp format, using server time");
             timestamp = LocalDateTime.now();
         }
 
+        // 2. Lưu Location với timestamp của thiết bị
         Location newLocation = Location.builder()
                 .device(device)
                 .latitude(latitude)
@@ -64,18 +71,26 @@ public class IngestServiceImpl implements IngestService {
 
         Location savedLocation = locationRepository.save(newLocation);
 
-        checkGeofenceViolation(device, latitude, longitude);
+        // 3. Truyền timestamp vào để check Geofence đúng thời điểm
+        checkGeofenceViolation(device, latitude, longitude, timestamp);
 
         // --- CẬP NHẬT TRẠNG THÁI ONLINE ---
         device.setLastLatitude(latitude);
         device.setLastLongitude(longitude);
-        device.setLastSeen(LocalDateTime.now()); // Cập nhật thời gian mới nhất
-        device.setStatus(DeviceStatus.ONLINE);   // Set cứng trạng thái ONLINE khi có dữ liệu
+
+        // QUAN TRỌNG: Dùng timestamp của thiết bị thay vì LocalDateTime.now()
+        device.setLastSeen(timestamp);
+        // Cập nhật thêm LastUpdate (thời điểm server nhận) nếu cần hiển thị "vừa cập nhật"
+        device.setLastUpdate(LocalDateTime.now());
+
+        device.setStatus(DeviceStatus.ONLINE);
         deviceRepository.save(device);
 
+        // 4. Gửi thông báo SOS/LOST với đúng timestamp
         if (payload.getStatus() != null) {
             if (Boolean.TRUE.equals(payload.getStatus().getSos())) {
                 log.warn("🚨 SOS DETECTED: {}", device.getName());
+                // Location đã chứa timestamp đúng
                 notificationService.sendSOSAlert(device, savedLocation);
             }
 
@@ -86,7 +101,8 @@ public class IngestServiceImpl implements IngestService {
         }
     }
 
-    private void checkGeofenceViolation(Device device, Double latitude, Double longitude) {
+    // Thêm tham số LocalDateTime eventTime
+    private void checkGeofenceViolation(Device device, Double latitude, Double longitude, LocalDateTime eventTime) {
         List<Geofence> activeGeofences = geofenceRepository.findByDeviceIdAndActiveTrue(device.getId());
         if (activeGeofences.isEmpty()) {
             device.setGeofenceStatus("NO_GEOFENCE");
@@ -109,7 +125,6 @@ public class IngestServiceImpl implements IngestService {
         String newStatus = insideAny ? "INSIDE" : "OUTSIDE";
         device.setGeofenceStatus(newStatus);
 
-
         if (!newStatus.equals(oldStatus)) {
             if ("OUTSIDE".equals(newStatus) && violatedGeofence != null) {
                 notificationService.sendGeofenceAlert(
@@ -118,7 +133,8 @@ public class IngestServiceImpl implements IngestService {
                         violatedGeofence.getName(),
                         violatedGeofence.getCenterLatitude().doubleValue(),
                         violatedGeofence.getCenterLongitude().doubleValue(),
-                        Double.valueOf(violatedGeofence.getRadiusMeters())
+                        Double.valueOf(violatedGeofence.getRadiusMeters()),
+                        eventTime // Truyền thời gian thực
                 );
             } else if ("INSIDE".equals(newStatus)) {
                 Geofence currentZone = activeGeofences.get(0);
@@ -128,7 +144,8 @@ public class IngestServiceImpl implements IngestService {
                         currentZone.getName(),
                         currentZone.getCenterLatitude().doubleValue(),
                         currentZone.getCenterLongitude().doubleValue(),
-                        Double.valueOf(currentZone.getRadiusMeters())
+                        Double.valueOf(currentZone.getRadiusMeters()),
+                        eventTime // Truyền thời gian thực
                 );
             }
         }

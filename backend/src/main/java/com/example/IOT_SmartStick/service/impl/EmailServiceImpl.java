@@ -25,10 +25,10 @@ public class EmailServiceImpl implements EmailService {
         // --- CẤU HÌNH URL ---
         // Link trỏ về Frontend (ReactJS) thay vì Backend để hiển thị UI đẹp
         // Môi trường Localhost:
-        String frontendUrl = "http://localhost:3000";
+//        String frontendUrl = "http://localhost:3000";
 
         // Môi trường Deploy (Khi nào deploy thì mở comment dòng này và comment dòng trên):
-        // String frontendUrl = "http://35.186.145.70";
+         String frontendUrl = "http://35.186.145.70";
 
         String verificationUrl = frontendUrl + "/verify?token=" + token;
 

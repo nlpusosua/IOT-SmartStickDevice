@@ -97,7 +97,8 @@ const SmartCaneDashboard = () => {
       return;
     }
 
-    const socket = new SockJS('http://localhost:8080/ws');
+    const socket = new SockJS('http://35.186.145.70:8080/ws');
+    // const socket = new SockJS('http://localhost:8080/ws');
     const client = Stomp.over(socket);
     
     // Tắt log debug rác

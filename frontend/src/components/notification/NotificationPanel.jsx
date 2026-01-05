@@ -1,6 +1,6 @@
 import React from 'react';
 import { X, AlertCircle, CheckCircle } from 'lucide-react';
-import { format, formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { markAsRead, markAllAsRead } from '../../service/alertService';
 import { toast } from 'react-toastify';
@@ -34,6 +34,9 @@ const NotificationPanel = ({ notifications, onClose, onRefresh, onNotificationCl
         return <AlertCircle size={20} className="text-orange-500" />;
       case 'GEOFENCE_RETURN':
         return <CheckCircle size={20} className="text-green-500" />;
+      case 'SOS':
+      case 'LOST':
+         return <AlertCircle size={20} className="text-red-600 animate-pulse" />;
       default:
         return <AlertCircle size={20} className="text-blue-500" />;
     }
@@ -82,6 +85,7 @@ const NotificationPanel = ({ notifications, onClose, onRefresh, onNotificationCl
               <div className="flex-1">
                 <p className="text-sm text-gray-800 mb-1">{notif.message}</p>
                 <span className="text-xs text-gray-500">
+                  {/* Backend giờ đã trả về đúng timestamp của sự kiện, hàm này sẽ hiển thị chuẩn */}
                   {formatDistanceToNow(new Date(notif.timestamp), { 
                     addSuffix: true, 
                     locale: vi 
