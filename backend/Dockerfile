@@ -1,9 +1,9 @@
-# Sử dụng Maven để build (nếu bạn chưa build jar) hoặc copy file jar đã build
-FROM eclipse-temurin:17-jdk-alpine
-VOLUME /tmp
-ARG JAR_FILE=target/*.jar
-COPY ${JAR_FILE} app.jar
-ENTRYPOINT ["java","-jar","/app.jar"]
+## Sử dụng Maven để build (nếu bạn chưa build jar) hoặc copy file jar đã build
+#FROM eclipse-temurin:17-jdk-alpine
+#VOLUME /tmp
+#ARG JAR_FILE=target/*.jar
+#COPY ${JAR_FILE} app.jar
+#ENTRYPOINT ["java","-jar","/app.jar"]
 
 ## --- Giai đoạn 1: Dùng Maven để Build code Java sang file .jar ---
 #FROM maven:3.8.5-openjdk-17 AS build
@@ -27,3 +27,17 @@ ENTRYPOINT ["java","-jar","/app.jar"]
 #COPY --from=build /app/target/*.jar app.jar
 #
 #ENTRYPOINT ["java","-jar","app.jar"]
+
+# Giai đoạn 1: Build code (Dùng Maven)
+FROM maven:3.8.5-openjdk-17 AS build
+WORKDIR /app
+COPY . .
+# Lệnh này sẽ biên dịch code .java thành .jar và bỏ qua test lỗi để nhanh hơn
+RUN mvn clean package -DskipTests
+
+# Giai đoạn 2: Chạy ứng dụng (Dùng JDK nhẹ)
+FROM eclipse-temurin:17-jdk-alpine
+WORKDIR /app
+# Copy file .jar vừa build được ở trên sang đây
+COPY --from=build /app/target/*.jar app.jar
+ENTRYPOINT ["java","-jar","app.jar"]
